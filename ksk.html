@@ -973,6 +973,7 @@ function scAsk(id,n=1,warn=false){
      <div style="font-size:13px;color:var(--t2);margin-top:4px">${n}問目 / ${ASK_ALL}問</div>
      <div class="prog">${Array.from({length:ASK_ALL},(_,i)=>`<i class="${i+1<n?"f":i+1===n?"c":""}"></i>`).join("")}</div>
      <div style="font-size:20px;font-weight:600;line-height:1.5;margin:22px 0 4px">${esc(q.t)}</div>
+     ${cur0&&cur0.from&&cur0.conf!=="手"?`<div style="font-size:12.5px;color:var(--teal);margin-bottom:4px">議事録から${cur0.conf?`（確信度 ${esc(cur0.conf)}）`:""}</div>`:""}
      <div style="font-size:13px;color:var(--t2);margin-bottom:12px">${ASK_HOW[q.k]}</div>
      ${q.k==="text"?body:""}</div>
    ${q.k==="text"?"":`<div style="margin-top:4px">${body}</div>`}
@@ -1106,8 +1107,14 @@ function sheetConfirm(a,m,res){
     a.decided=a.decided||[];a.open=a.open||[];a.todos=a.todos||[];
     /* 同じ議事録から同じ文面がすでに入っていれば足さない（違う議事録からの同じ文面は残す） */
     const has=(arr,text)=>arr.some(y=>y.from===m.id&&y.text===text);
+    const skipped=[];   /* 手で入力済みのため入れなかった問 */
     items.filter(x=>x.on).forEach(x=>{
-      if(x.k==="a")return;  /* 聞き取りの答えは、まだ入れない（第4回の後半で入れる） */
+      if(x.k==="a"){  /* 聞き取りの答え。conf "手" の問は絶対に上書きしない。AI が入れた答えは上書きしてよい */
+        a.intake=a.intake||{answers:{}};
+        const ans=a.intake.answers=a.intake.answers||{};
+        if((ans[x.key]||{}).conf==="手"){skipped.push(x.n);return;}
+        ans[x.key]={v:Array.isArray(x.v)?x.v.slice():x.v,conf:x.conf,src:x.src,from:m.id};
+        return;}
       if(x.k!=="k"&&has(x.k==="d"?a.decided:x.k==="o"?a.open:a.todos,x.text))return;
       if(x.k==="d")a.decided.push({text:x.text,date:m.date,by:m.who,from:m.id});
       else if(x.k==="k"){  /* 決裁者は1人だけ。古い行を消してから足す */
@@ -1119,6 +1126,7 @@ function sheetConfirm(a,m,res){
     });
     m.aiDone=true;
     await save();closeSheet();stack=[];scMinutes();
+    if(skipped.length) alert("問"+skipped.join("・問")+"は手で入力済みのため、入れませんでした。");
   };
   $("cx").onclick=closeSheet;
   $("ok").onclick=commit;
