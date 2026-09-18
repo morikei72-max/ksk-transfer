@@ -1119,19 +1119,12 @@ const RULES6=["画面は3階層まで。ホーム → 一覧 → 詳細。4階�
  "入力は下から出るシートで行う。シートに戻るは置かない。「やめる」と「保存」だけ",
  "保存してから閉じる。閉じてから保存しない",
  "消すときは必ず確認を出す"];
-/* 確認書（お客様向け）で使う、問の呼び名 */
-const ASK_LABEL=["御社名・ご担当者様","ご住所","お電話番号","メールアドレス","代表者様","ご紹介者","最後にOKを出される方",
- "いま一番お困りのこと","いまのやり方","お困りになる方","使う人数","ご希望の時期と理由","使う場所","アプリの種類","使う機器",
- "今回は作らないもの","画面の数","写真","お客様ご自身による登録・修正","通知","データの移行","アプリの中のお金",
- "使う人の種類","金額や個人情報を見てよい範囲","消したものの扱い","Excelへの書き出し","使い方のご説明",
- "ご予算の目安","補助金","抑えたい費用","公開後の保守"];
 const ansText=(a,n)=>{const v=ansV(a,n);if(Array.isArray(v))return v.length?v.join("・"):UNANS;
   return v!=null&&String(v).trim()!==""?String(v).trim():UNANS;};
 const ymd=(sep="")=>{const d=new Date();return d.getFullYear()+sep+String(d.getMonth()+1).padStart(2,"0")+sep+String(d.getDate()).padStart(2,"0");};
 const fname=s=>String(s||"").replace(/[\\/:*?"<>|\s]+/g,"").slice(0,40)||"お客様";
 const custName=a=>(a.client&&a.client.trim())||(ansText(a,1)!==UNANS?ansText(a,1):"お客様");
 const qLines=(a,ns)=>ns.map(n=>`- 問${n} ${ASK[n-1].t}：${ansText(a,n)}`).join("\n");
-const lLines=(a,ns)=>ns.map(n=>`- ${ASK_LABEL[n-1]}：${ansText(a,n)}`).join("\n");
 const listOr=(arr,f,none="（なし）")=>arr.length?arr.map(f).join("\n"):none;
 function docBrief(a){   /* 指示書（社内・Claude Code 向け） */
   const c=DB.company||{}, p=a.price, pc=p&&p.type?priceCalc(p):null, Y=n=>(+n||0).toLocaleString("ja-JP");
@@ -1195,39 +1188,64 @@ ${listOr(a.todos||[],t=>`- ${t.done?"［済］":""}${t.who||"（未定）"}：${
 ${unans.length?unans.map(n=>`- 問${n} ${ASK[n-1].t}`).join("\n"):"（すべて答えています）"}
 `;
 }
-function docConfirm(a,which){   /* 確認書（お客様向け）。which は "low"（下限）か "high"（上限） */
+/* 確認書（お客様向け）。which は "low"（下限）か "high"（上限）
+   社内の言葉はお客様の言葉に置き換え、答えていない行は出さない（統合設計書 11-1）。文末は「です・ます」 */
+const CF_LATER="（後日ご確認させてください）";
+const CF_TYPE={"予約・受付":"ご予約とご来店の受付ができるアプリ","台帳・一覧":"情報を一覧で見て、探せるアプリ","受発注":"ご注文と出荷を管理するアプリ",
+ "マッチング":"依頼する方と受ける方をつなぐアプリ","報告・記録":"現場で記録して提出するアプリ","管理・集計":"数字をまとめて見るアプリ"};
+const CF_MONEY={"動かない":"アプリの中でのお支払いはありません","お客様の口座に直接":"お支払いは、御社の口座に直接入ります",
+ "決済会社を通して":"カード決済に対応します","こちらが預かる":"当社が一度お預かりし、後日お振込みします"};
+const CF_WHERE={"LINE":"LINEの中で使います","アプリ":"アプリとして使います","両方":"LINEとアプリの両方で使います","社内だけ":"社内でお使いいただきます"};
+const CF_DEVICE={"スマホ中心":"主にスマートフォンです","パソコン中心":"主にパソコンです","両方":"スマートフォンとパソコンの両方です"};
+const CF_SCREENS={"3つまで":"3つ程度です","5つまで":"5つ程度です","10まで":"10程度です","それ以上":"10を超える見込みです"};
+const CF_PEOPLE={"〜5人":"5名程度です","〜20人":"20名程度です","〜100人":"100名程度です","それ以上":"100名を超える見込みです"};
+const CF_NOW={"紙":"紙で管理されています","Excel":"Excelで管理されています","LINE":"LINEでやり取りされています",
+ "他のアプリ":"他のアプリをお使いです","何もしていない":"特に仕組みはありません"};
+const CF_WHO={"社内の人":"社内の皆様","お客様":"お客様","取引先":"お取引先"};
+const CF_PHOTO={"使わない":"写真は使いません","少し使う":"写真を少し使います","たくさん使う":"写真をたくさん使います"};
+const CF_SELF={"する":"お客様ご自身で登録や修正ができるようにします","しない":"お客様ご自身での登録や修正はありません"};
+const CF_MOVE={"ない":"移すデータはありません","Excelから":"いまのExcelのデータを移します","紙から":"いまの紙の記録を移します",
+ "他のアプリから":"いまお使いのアプリのデータを移します"};
+const CF_CARE={"なし":"保守のご契約はありません。修正のたびにお見積りします","基本":"基本プラン（月1回までの軽い修正と、不具合の無償対応）です",
+ "しっかり":"しっかりプラン（月1回のお打ち合わせと修正、優先対応）です"};
+/* 自由に書いた答えの文末を「です」でそろえる（すでに です・ます で終わっていれば そのまま） */
+const cfDesu=v=>{const t=String(v).trim().replace(/[。．.]+$/,"");return /(です|ます|ません|でした|ました)$/.test(t)?t+"。":t+"です。";};
+const cfEnd=s=>s.replace(/[。．.]+$/,"")+"。";
+function docConfirm(a,which){
   const c=DB.company||{}, p=a.price, pc=p&&p.type?priceCalc(p):null, Y=n=>(+n||0).toLocaleString("ja-JP");
-  const q8=ansText(a,8), init=pc?(which==="high"?pc.high:pc.low):null;
+  const has=n=>ansText(a,n)!==UNANS, v=n=>ansV(a,n);
+  const pick=(n,map)=>has(n)&&map[v(n)]?cfEnd(map[v(n)]):null;       /* 選ぶ問：言い換えがあるときだけ */
+  const free=n=>has(n)?cfDesu(ansText(a,n)):null;                      /* 自由に書く問 */
+  const L=(label,s)=>s?`- ${label}：${s}`:null;
+  const secs=[];   /* [見出し, 行の配列, 足す文] 行がすべて無い節は出さない */
+  secs.push(["このアプリについて",[has(8)?`「${ansText(a,8)}」を解決するためのアプリです。`:null]]);
+  secs.push(["お客様の情報",[L("御社名・ご担当者様",free(1)),L("ご住所",free(2)),L("お電話番号",free(3)),L("メールアドレス",free(4)),
+    L("代表者様",free(5)),L("ご紹介者",free(6)),L("最後にOKを出される方",free(7)||CF_LATER)]]);
+  secs.push(["いまお困りのこと",[has(8)?`- いま一番お困りのこと：「${ansText(a,8)}」という点です。`:null,
+    L("いまのやり方",pick(9,CF_NOW)),
+    L("お困りになる方",has(10)?cfEnd((Array.isArray(v(10))?v(10):[v(10)]).map(x=>CF_WHO[x]||x).join("と")+"です"):null),
+    L("お使いになる方",pick(11,CF_PEOPLE))]]);
+  secs.push(["ご希望の時期",[L("ご希望の時期",free(12)||CF_LATER)]]);
+  secs.push(["作るもの",[has(14)&&CF_TYPE[v(14)]?`- ${CF_TYPE[v(14)]}です。`:null,
+    L("使う場所",pick(13,CF_WHERE)),L("使う機器",pick(15,CF_DEVICE)),L("画面数",pick(17,CF_SCREENS)),
+    L("写真",pick(18,CF_PHOTO)),L("登録や修正",pick(19,CF_SELF)),L("通知",free(20)),L("データの移行",pick(21,CF_MOVE)),
+    L("お支払い",pick(22,CF_MONEY))]]);
+  secs.push(["今回は作らないもの",[L("今回は作らないもの",free(16)||CF_LATER)],"ここに書いたものは、今回のお見積りに含まれていません。"]);
+  secs.push(["金額・納期・保守",[pc?`- 初期費用：${Y(which==="high"?pc.high:pc.low)}円（税別）です。`:null,
+    pc?`- 毎月の費用：${Y(pc.monthly)}円（税別）です。`:null,
+    p&&CF_CARE[p.care]?`- 保守：${cfEnd(CF_CARE[p.care])}`:null,
+    a.due&&a.due.trim()?`- 納期：${cfDesu(a.due)}`:null]]);
+  const body=secs.map(([h,ls,note])=>[h,ls.filter(Boolean),note]).filter(([,ls])=>ls.length)
+    .map(([h,ls,note],i)=>`## ${i+1}. ${h}\n${ls.join("\n")}${note?"\n"+note:""}`).join("\n\n");
   return `# ${a.name} ご確認書
 
 ${ymd("-").replace(/-/g,"/")}　${c.name||"株式会社ケイエスケー"}
 
 お打ち合わせで伺った内容をまとめました。内容にお間違いがないか、ご確認をお願いいたします。
 
-## 1. このアプリについて
-${q8===UNANS?UNANS:`「${q8}」を解決するためのアプリです。`}
+${body}
 
-## 2. お客様の情報
-${lLines(a,[1,2,3,4,5,6,7])}
-
-## 3. いまお困りのこと
-${lLines(a,[8,9,10,11])}
-
-## 4. ご希望の時期
-${lLines(a,[12])}
-
-## 5. 作るもの
-${lLines(a,[13,14,15,17,18,19,20,21,22])}
-
-## 6. 今回は作らないもの
-${lLines(a,[16])}
-ここに書いたものは、今回のお見積りに含まれていません。
-
-## 7. 金額・納期・保守
-- 初期費用：${pc?`${Y(init)}円（税別）`:"（未定）"}
-- 毎月の費用：${pc?`${Y(pc.monthly)}円（税別）`:"（未定）"}
-- 保守：${p?p.care:"（未定）"}
-- 納期：${(a.due&&a.due.trim())||"（未定）"}
+内容にお間違いがございましたら、お手数ですがご指摘ください。
 `;
 }
 /* 全文をシートに出す。コピーは、文を選んで写す方法（execCommand）を先に試し、だめなら navigator.clipboard */
