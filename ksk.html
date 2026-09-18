@@ -179,7 +179,7 @@ button.row{cursor:pointer}button.row:active{background:var(--c2)}
   background:radial-gradient(140% 90% at 50% 40%,rgba(0,0,0,0) 45%,rgba(0,0,0,.55) 100%)}
 .tile .wrapi{--d:0s}
 .tile:nth-child(2) .wrapi{--d:-.7s}.tile:nth-child(3) .wrapi{--d:-1.9s}.tile:nth-child(4) .wrapi{--d:-2.6s}
-.tile:nth-child(5) .wrapi{--d:-1.2s}.tile:nth-child(6) .wrapi{--d:-3.1s}.tile:nth-child(7) .wrapi{--d:-.3s}.tile:nth-child(8) .wrapi{--d:-2.2s}
+.tile:nth-child(5) .wrapi{--d:-1.2s}.tile:nth-child(6) .wrapi{--d:-3.1s}.tile:nth-child(7) .wrapi{--d:-.3s}.tile:nth-child(8) .wrapi{--d:-2.2s}.tile:nth-child(9) .wrapi{--d:-1.5s}
 .tile .ico{position:relative;
   background:linear-gradient(165deg,rgba(255,255,255,.24) 0%,rgba(255,255,255,.07) 45%,rgba(0,0,0,.18) 100%)!important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 -6px 12px rgba(0,0,0,.28),
@@ -254,9 +254,10 @@ const GL={
  dec:`<g stroke="currentColor" stroke-width="2.1" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l4.5 4.5L20 5.5"/></g>`,
  live:`<g stroke="currentColor" stroke-width="1.9" fill="none"><circle cx="12" cy="12" r="8.2"/><path d="M3.8 12h16.4M12 3.8c4.2 4.6 4.2 11.8 0 16.4-4.2-4.6-4.2-11.8 0-16.4z"/></g>`,
  word:`<g stroke="currentColor" stroke-width="1.9" fill="none" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9.5h5M8 13h8M8 16.5h5.5"/></g>`,
- help:`<g stroke="currentColor" stroke-width="1.9" fill="none" stroke-linecap="round"><circle cx="12" cy="12" r="8.2"/><path d="M9.6 9.6a2.5 2.5 0 1 1 3.2 2.4c-.6.2-.8.7-.8 1.3"/></g><circle cx="12" cy="16.6" r="1" fill="currentColor"/>`
+ help:`<g stroke="currentColor" stroke-width="1.9" fill="none" stroke-linecap="round"><circle cx="12" cy="12" r="8.2"/><path d="M9.6 9.6a2.5 2.5 0 1 1 3.2 2.4c-.6.2-.8.7-.8 1.3"/></g><circle cx="12" cy="16.6" r="1" fill="currentColor"/>`,
+ setting:`<g stroke="currentColor" stroke-width="1.9" fill="none" stroke-linejoin="round"><path d="M10.48 5.89L10.82 3.68L13.18 3.68L13.52 5.89L15.25 6.60L17.04 5.28L18.72 6.96L17.40 8.75L18.11 10.48L20.32 10.82L20.32 13.18L18.11 13.52L17.40 15.25L18.72 17.04L17.04 18.72L15.25 17.40L13.52 18.11L13.18 20.32L10.82 20.32L10.48 18.11L8.75 17.40L6.96 18.72L5.28 17.04L6.60 15.25L5.89 13.52L3.68 13.18L3.68 10.82L5.89 10.48L6.60 8.75L5.28 6.96L6.96 5.28L8.75 6.60z"/><circle cx="12" cy="12" r="2.8"/></g>`
 };
-const TINT={gijiroku:"#ffd60a",apps:"#5ac8fa",money:"#30d158",guide:"#ff9f0a",dec:"#40c8e0",live:"#c78bf5",word:"#9aa0a6",help:"#ff7a95"};
+const TINT={gijiroku:"#ffd60a",apps:"#5ac8fa",money:"#30d158",guide:"#ff9f0a",dec:"#40c8e0",live:"#c78bf5",word:"#9aa0a6",help:"#ff7a95",setting:"#8e8e93"};
 const icon=k=>{const c=TINT[k];return `<span class="ico" style="color:${c};background:linear-gradient(160deg,rgba(255,255,255,.15),rgba(255,255,255,.04));border:.5px solid ${c}59;box-shadow:0 5px 16px rgba(0,0,0,.42),inset 0 0 18px ${c}26;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)"><svg viewBox="0 0 24 24">${GL[k]}</svg></span>`;};
 /* ==================== データ ==================== */
 const STAGES=[
@@ -299,7 +300,7 @@ const SEED=[
  {name:"名刺管理",status:"done",stage:6,client:"社内",owner:"森下"}];
 
 /* ==================== 状態 ==================== */
-let DB={apps:[]}, cur=null, filter="all", stack=[], zoomFrom=null;
+let DB={apps:[],company:{}}, cur=null, filter="all", stack=[], zoomFrom=null;
 let curYM=new Date().toISOString().slice(0,7);
 const $=i=>document.getElementById(i);
 const esc=s=>String(s??"").replace(/[<>&"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;"}[c]));
@@ -310,7 +311,7 @@ const ymL=y=>y.slice(0,4)+"年"+(+y.slice(5,7))+"月";
 const shiftYM=(y,d)=>{const[a,b]=y.split("-").map(Number);const t=new Date(a,b-1+d,1);
   return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0");};
 
-/* 保存場所は公開ページ用の db。棚は apps/<アプリのid>（minutes を除く）と minutes/<議事録のid>（appId 付き）の2つ */
+/* 保存場所は公開ページ用の db。棚は apps/<アプリのid>（minutes を除く）と minutes/<議事録のid>（appId 付き）と company/main（自社の情報）の3つ */
 let db=null, sample=null, loaded=false;
 const OPEN_LINK="このアプリは、公開したリンクから開いてください。";
 let lastSaved={};                 /* パスごとに、前回保存した JSON 文字列 */
@@ -322,6 +323,7 @@ function docsOf(){
     out["apps/"+a.id]=clone(rest);
     (minutes||[]).forEach(m=>{out["minutes/"+m.id]=clone({...m,appId:a.id});});
   });
+  out["company/main"]=clone(DB.company||{});
   return out;
 }
 function stripMsg(t){
@@ -331,20 +333,23 @@ async function boot(){
   db = window.claude && window.claude.use ? await window.claude.use("db") : null;
   sample = window.claude && window.claude.use ? await window.claude.use("sample") : null;
   if(!db){ paintHome(); stripMsg(OPEN_LINK); return; }
-  let apps, mins;
+  let apps, mins, company={};
   try{
     apps=(await db.collection("apps").get()).docs.map(d=>clone(d.data()||{}));
     mins=(await db.collection("minutes").get()).docs.map(d=>clone(d.data()||{}));
+    const cd=(await db.collection("company").get()).docs;
+    const cm=cd.find(d=>d.id==="main")||cd[0];      /* company/main が無ければ空のまま */
+    if(cm) company=clone(cm.data()||{});
   }catch(e){ paintHome(); stripMsg("読み込めませんでした。ページを開き直してください。"); return; }
   apps=apps.filter(a=>a&&a.id);
   const byId={}; apps.forEach(a=>{a.minutes=[];byId[a.id]=a;});
   mins.forEach(m=>{ if(!m||!byId[m.appId])return; const {appId,...rest}=m; byId[appId].minutes.push(rest); });
   apps.forEach(a=>a.minutes.sort((x,y)=>String(x.id).localeCompare(String(y.id))));
-  DB={apps};
+  DB={apps,company};
   lastSaved={}; Object.entries(docsOf()).forEach(([p,b])=>lastSaved[p]=JSON.stringify(b));
   loaded=true;
   if(!DB.apps.length){
-    DB={apps:SEED.map(s=>({id:uid("a"),due:"",url:"",decided:[],open:[],meetings:[],checks:{},money:[],minutes:[],todos:[],...s}))};
+    DB={apps:SEED.map(s=>({id:uid("a"),due:"",url:"",decided:[],open:[],meetings:[],checks:{},money:[],minutes:[],todos:[],...s})),company};
     await save();
   }
   paintHome();
@@ -380,7 +385,8 @@ const TILES=[
  {k:"guide",n:"手順書",go:scGuide},
  {k:"live",n:"公開アプリ",go:()=>{filter="live";scApps();}},
  {k:"word",n:"用語集",go:scWord},
- {k:"help",n:"使い方",go:scHelp}];
+ {k:"help",n:"使い方",go:scHelp},
+ {k:"setting",n:"設定",go:scSetting}];
 
 function paintHome(){
   $("grid").innerHTML="";
@@ -763,6 +769,31 @@ function scHelp(){
    sec("注意","",
     `<div class="row"><span class="m"><b style="color:#ff8f86">記録は社内全員に共有されます</b><small>パスワードや個人の連絡先は書かないでください</small></span></div>
      <div class="row"><span class="m"><b style="color:#ff8f86">金額と納期は代表の承認後に提示</b><small>その場で即答しない</small></span></div>`));
+}
+
+/* ==================== 設定（自社の情報） ==================== */
+/* 口座番号は社内全員に見えるため保存しない。銀行名と支店名まで */
+const CO=[["name","会社名","株式会社ケイエスケー"],["division","事業部","App Create 事業部"],["address","住所","〒000-0000 ◯◯県◯◯市…"],
+ ["tel","電話","000-0000-0000"],["email","メール","info@example.jp"],["rep","代表者","代表取締役 ◯◯"],
+ ["bank","振込先の銀行名・支店名","◯◯銀行 ◯◯支店"],["staff","担当者","森下"]];
+function scSetting(){
+  const c=DB.company||{};
+  view("設定","請求書などに使う自社の情報です",
+   sec("自社の情報","",CO.map(([k,n])=>`<button class="row" data-k="${k}"><span class="m"><b>${n}</b>
+     <small>${c[k]?esc(c[k]):`<span style="color:var(--amber)">まだ入っていません</span>`}</small></span>${CV}</button>`).join(""),
+     "口座番号は社内全員に見えるため、ここには入れません。"));
+  $("sc").querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>formCompany(b.dataset.k));
+}
+function formCompany(k){
+  const [,n,ph]=CO.find(x=>x[0]===k);
+  sheet(`<div class="sh"><button id="cx">やめる</button><b>${n}</b><button class="r" id="sv">保存</button></div>
+   <div class="fld"><label>${n}</label><input id="cv" value="${esc((DB.company||{})[k]||"")}" placeholder="${esc(ph)}"></div>`);
+  $("cx").onclick=closeSheet;
+  $("sv").onclick=async()=>{
+    DB.company=DB.company||{};
+    DB.company[k]=$("cv").value.trim();
+    await save();closeSheet();scSetting();
+  };
 }
 
 /* ==================== シート ==================== */
