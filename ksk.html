@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>KSK アプリ開発</title>
+<style>
+/* ============ design tokens ============ */
+:root{
+  --blue:#0a84ff; --green:#32d74b; --amber:#ffd60a; --red:#ff453a; --orange:#ff9f0a; --purple:#bf5af2; --teal:#40c8e0;
+  --bg:#000; --c1:#141416; --c2:#1e1e21; --c3:#2c2c2f; --sep:rgba(255,255,255,.09);
+  --t1:#f5f5f7; --t2:#96969c; --t3:#5f5f66;
+  --sp:16px; --r:14px;
+  --f-cap:11.5px; --f-sm:12.5px; --f-bd:15.5px; --f-lg:17px; --f-ttl:30px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  background:var(--bg);color:var(--t1);overflow:hidden;
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Hiragino Kaku Gothic ProN","Yu Gothic Medium","Noto Sans JP",sans-serif;
+  font-size:var(--f-bd);line-height:1.55;letter-spacing:.005em;font-feature-settings:"palt" 1;
+}
+button,input,textarea,select{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+
+/* ============ home ============ */
+.wall{position:fixed;inset:0;overflow:hidden;background:linear-gradient(165deg,#0e1a2b 0%,#070b12 55%,#0a0f18 100%)}
+.wall .b{position:absolute;border-radius:50%;filter:blur(82px)}
+.wall .nz{position:absolute;inset:0;opacity:.055;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E")}
+.home{position:relative;height:100%;max-width:480px;margin:0 auto;display:flex;flex-direction:column;padding:0 var(--sp)}
+
+.sbar{display:flex;justify-content:space-between;align-items:center;padding:12px 6px 0;font-size:14.5px;font-weight:600}
+.sbar .r{display:flex;align-items:center;gap:5px}
+.bars{display:flex;align-items:flex-end;gap:2px;height:10px}
+.bars i{width:3px;background:#fff;border-radius:1px}
+.batt{width:24px;height:12px;border:1.2px solid rgba(255,255,255,.65);border-radius:3.5px;padding:1.5px;position:relative}
+.batt::after{content:"";position:absolute;right:-3.5px;top:3.8px;width:2px;height:4px;background:rgba(255,255,255,.45);border-radius:0 1px 1px 0}
+.batt b{display:block;height:100%;width:76%;background:#fff;border-radius:1.5px}
+
+.hd{padding:22px 4px 20px;display:flex;align-items:flex-end;justify-content:space-between}
+.hd .t{font-size:54px;font-weight:200;line-height:.95;letter-spacing:-.025em}
+.hd .d{font-size:13px;font-weight:600;color:rgba(255,255,255,.62);padding-bottom:5px;text-align:right;line-height:1.5}
+
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:19px 10px;padding:2px 0 4px}
+.tile{background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:7px;cursor:pointer}
+.tile .wrapi{position:relative}
+.tile .ico{width:58px;height:58px;border-radius:24%;display:flex;align-items:center;justify-content:center;
+  transition:transform .15s cubic-bezier(.3,1.4,.6,1)}
+.tile .ico svg{width:27px;height:27px}
+.tile:active .ico{transform:scale(.9)}
+.tile .lb{font-size:11px;font-weight:500;color:rgba(255,255,255,.93);text-shadow:0 1px 3px rgba(0,0,0,.5);letter-spacing:0}
+.dot-b{position:absolute;top:-3px;right:-3px;min-width:19px;height:19px;padding:0 5px;border-radius:99px;background:var(--red);
+  font-size:11.5px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid #070b11}
+
+.spacer{flex:1;min-height:8px}
+.strip{background:rgba(255,255,255,.1);border:.5px solid rgba(255,255,255,.14);border-radius:16px;
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:9px 12px 8px;margin-bottom:6px;max-height:23vh;overflow-y:auto}
+.strip .cap{display:flex;justify-content:space-between;font-size:10px;font-weight:700;color:rgba(255,255,255,.5);
+  letter-spacing:.09em;margin-bottom:5px}
+.sr{display:flex;align-items:center;gap:8px;padding:4.5px 0;width:100%;background:none;border:none;text-align:left;cursor:pointer}
+.sr+.sr{border-top:.5px solid rgba(255,255,255,.08)}
+.sr i{width:6px;height:6px;border-radius:50%;flex:none}
+.sr b{flex:1;font-size:12.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sr small{font-size:10px;color:rgba(255,255,255,.45);white-space:nowrap}
+.strip .nil{font-size:11.5px;color:rgba(255,255,255,.45);padding:2px 0 4px}
+.hbar{width:126px;height:4.5px;border-radius:99px;background:rgba(255,255,255,.5);margin:0 auto 7px}
+
+/* ============ window ============ */
+.win{position:fixed;inset:0;z-index:50;background:var(--bg);display:none;flex-direction:column;transform-origin:center}
+.win.on{display:flex}
+.nav{display:flex;align-items:center;gap:8px;padding:12px var(--sp) 9px;background:rgba(0,0,0,.72);
+  backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);
+  border-bottom:.5px solid var(--sep);position:relative;z-index:4}
+.nav .bk{background:none;border:none;color:var(--blue);font-size:var(--f-lg);display:flex;align-items:center;gap:3px;cursor:pointer}
+.nav .bk svg{width:11px;height:18px}
+.nav .tt{position:absolute;left:84px;right:84px;text-align:center;font-size:15.5px;font-weight:600;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none}
+.nav .ac{margin-left:auto;background:none;border:none;color:var(--blue);font-size:var(--f-lg);cursor:pointer}
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:48px}
+.ttl{font-size:var(--f-ttl);font-weight:800;letter-spacing:-.025em;line-height:1.25;padding:14px var(--sp) 2px}
+.sub{font-size:13px;color:var(--t2);padding:0 var(--sp) 18px}
+.ind{position:absolute;left:0;right:0;bottom:0;padding:8px 0 9px;display:flex;justify-content:center;
+  background:linear-gradient(transparent,rgba(0,0,0,.8) 55%);z-index:5}
+.ind i{width:126px;height:4.5px;border-radius:99px;background:rgba(255,255,255,.5);cursor:pointer}
+
+/* ============ lists ============ */
+.sec{margin:0 var(--sp) 24px}
+.cap{display:flex;justify-content:space-between;align-items:baseline;font-size:10.5px;font-weight:700;color:var(--t2);
+  letter-spacing:.085em;padding:0 4px 7px}
+.cap span:last-child{font-weight:600;letter-spacing:0;font-size:11px}
+.card{background:var(--c1);border-radius:var(--r);overflow:hidden}
+.row{display:flex;align-items:center;gap:11px;padding:11px 14px;min-height:46px;width:100%;background:none;border:none;
+  text-align:left;position:relative}
+button.row{cursor:pointer}button.row:active{background:var(--c2)}
+.row+.row::before{content:"";position:absolute;left:14px;right:0;top:0;height:.5px;background:var(--sep)}
+.row .m{flex:1;min-width:0}
+.row .m b{display:block;font-size:var(--f-bd);font-weight:500;line-height:1.45}
+.row .m small{display:block;font-size:var(--f-sm);color:var(--t2);margin-top:1px;line-height:1.45}
+.row .v{font-size:14px;color:var(--t2);white-space:nowrap}
+.cv{width:7px;height:12px;flex:none;opacity:.35}
+.dt{width:8px;height:8px;border-radius:50%;flex:none}
+.ck{width:22px;height:22px;border-radius:50%;flex:none;border:1.5px solid var(--t3);background:none;display:flex;
+  align-items:center;justify-content:center;cursor:pointer}
+.ck svg{width:11px;height:11px;opacity:0}
+.ck.on{background:var(--green);border-color:var(--green)}
+.ck.on svg{opacity:1}
+.x{background:none;border:none;color:var(--t3);cursor:pointer;padding:2px 0 2px 6px;flex:none}
+.x svg{width:13px;height:13px}
+.tag{font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px;white-space:nowrap;letter-spacing:.02em}
+.tg-make{background:rgba(255,214,10,.15);color:var(--amber)}
+.tg-done{background:rgba(64,200,224,.15);color:var(--teal)}
+.tg-live{background:rgba(50,215,75,.15);color:var(--green)}
+.tg-stop{background:var(--c3);color:var(--t2)}
+.tg-imp{background:rgba(255,69,58,.18);color:#ff8f86}
+.tg-now{background:rgba(255,214,10,.16);color:var(--amber)}
+.tg-next{background:rgba(10,132,255,.2);color:#6cb8ff}
+.prog{display:flex;gap:2px;margin-top:7px}
+.prog i{height:3px;flex:1;background:var(--c3);border-radius:2px}
+.prog i.f{background:var(--green)}.prog i.c{background:var(--amber)}
+.hint{font-size:var(--f-sm);color:var(--t2);padding:7px 5px 0;line-height:1.55}
+.q{list-style:none}
+.q li{font-size:14.5px;padding:5px 0 5px 17px;position:relative;line-height:1.55;color:#dcdce0}
+.q li::before{content:"";position:absolute;left:2px;top:13px;width:5px;height:5px;border-radius:50%;background:var(--blue)}
+.q.am li::before{background:var(--amber)}
+.warn{margin:9px 5px 0;font-size:13px;line-height:1.6;color:#ffb4ae;display:flex;gap:7px}
+.warn svg{width:15px;height:15px;flex:none;margin-top:3px}
+
+.seg{display:flex;background:var(--c1);border-radius:10px;padding:2px;margin:0 var(--sp) 18px}
+.seg button{flex:1;border:none;background:none;font-size:13px;font-weight:600;padding:7px 2px;border-radius:8px;cursor:pointer;color:var(--t1)}
+.seg button.on{background:var(--c3)}
+.big{display:block;width:calc(100% - var(--sp)*2);margin:0 var(--sp) 12px;background:var(--c1);color:var(--blue);
+  border:none;border-radius:var(--r);padding:14px;font-size:16px;font-weight:600;cursor:pointer}
+.big.pri{background:var(--blue);color:#fff}
+.big.dan{color:var(--red)}
+.big:active{opacity:.7}
+
+/* money */
+.kpi{padding:18px 16px 16px}
+.kpi .lab{font-size:11px;font-weight:700;color:var(--t2);letter-spacing:.08em}
+.kpi .amt{font-size:38px;font-weight:800;letter-spacing:-.03em;line-height:1.1;margin:3px 0 4px}
+.kpi .sub2{font-size:12.5px;color:var(--t2)}
+.meter{display:flex;height:6px;border-radius:99px;overflow:hidden;background:var(--c3);margin-top:13px}
+.meter i{display:block}
+
+/* inputs */
+.fld{padding:0 var(--sp)}
+.fld label{display:block;font-size:11px;font-weight:700;color:var(--t2);letter-spacing:.06em;margin:16px 0 6px}
+.fld input,.fld textarea,.fld select{width:100%;background:var(--c1);border:none;border-radius:11px;padding:12px 14px;font-size:16.5px}
+.fld textarea{min-height:88px;resize:vertical;line-height:1.6}
+.fld input:focus,.fld textarea:focus,.fld select:focus{outline:1.5px solid var(--blue)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.inline{background:none!important;padding:0!important;font-size:15.5px}
+.inline::placeholder{color:var(--t3)}
+.addbtn{background:none;border:none;color:var(--blue);font-size:14px;font-weight:600;cursor:pointer;flex:none}
+
+/* sheet */
+.sheet{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.55);display:none;align-items:flex-end;justify-content:center}
+.sheet.on{display:flex}
+.sheet .in{background:#101012;width:100%;max-width:480px;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;padding-bottom:30px}
+.grab{width:36px;height:5px;border-radius:99px;background:var(--c3);margin:8px auto 2px}
+.sh{display:flex;align-items:center;padding:10px var(--sp) 12px}
+.sh b{flex:1;text-align:center;font-size:16px;font-weight:700}
+.sh button{background:none;border:none;color:var(--blue);font-size:var(--f-lg);cursor:pointer;min-width:62px}
+.sh button.r{text-align:right}
+@media(max-width:350px){.tile .ico{width:52px;height:52px}.hd .t{font-size:46px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ============ ホームの立体感・奥行き・ゆらぎ（2026-09-16） ============ */
+.wall{background:
+  radial-gradient(70% 45% at 20% 5%,rgba(64,130,210,.55) 0%,rgba(14,26,43,0) 70%),radial-gradient(60% 40% at 90% 30%,rgba(110,80,200,.30) 0%,rgba(14,26,43,0) 70%),radial-gradient(80% 35% at 50% 62%,rgba(40,90,150,.22) 0%,rgba(7,11,18,0) 70%),
+  radial-gradient(90% 60% at 50% 120%,#0b1a2e 0%,rgba(7,11,18,0) 70%),
+  linear-gradient(180deg,#0f2036 0%,#070b12 58%,#04070c 100%)}
+.wall .b{animation:fxDrift 26s ease-in-out infinite alternate}
+.wall .b:nth-child(2){animation-duration:34s;animation-delay:-9s}
+.wall .b:nth-child(3){animation-duration:30s;animation-delay:-17s}
+@keyframes fxDrift{0%{transform:translate(0,0) scale(1)}100%{transform:translate(6%,4%) scale(1.12)}}
+.wall::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(140% 90% at 50% 40%,rgba(0,0,0,0) 45%,rgba(0,0,0,.55) 100%)}
+.tile .wrapi{--d:0s}
+.tile:nth-child(2) .wrapi{--d:-.7s}.tile:nth-child(3) .wrapi{--d:-1.9s}.tile:nth-child(4) .wrapi{--d:-2.6s}
+.tile:nth-child(5) .wrapi{--d:-1.2s}.tile:nth-child(6) .wrapi{--d:-3.1s}.tile:nth-child(7) .wrapi{--d:-.3s}.tile:nth-child(8) .wrapi{--d:-2.2s}
+.tile .ico{position:relative;
+  background:linear-gradient(165deg,rgba(255,255,255,.24) 0%,rgba(255,255,255,.07) 45%,rgba(0,0,0,.18) 100%)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 -6px 12px rgba(0,0,0,.28),
+    0 2px 3px rgba(0,0,0,.55),0 22px 30px -10px rgba(0,0,0,.95),
+    0 8px 30px -6px color-mix(in srgb,currentColor 60%,transparent)!important;
+  animation:fxFloat 4.2s ease-in-out infinite;animation-delay:var(--d)}
+.tile .ico::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(90% 55% at 50% 0%,rgba(255,255,255,.28),rgba(255,255,255,0) 70%)}
+.dot-b{z-index:3}
+.tile .lb{color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.8)}
+.tile .ico svg{filter:drop-shadow(0 2px 4px color-mix(in srgb,currentColor 45%,transparent))}
+.tile .wrapi::after{content:"";position:absolute;left:14%;right:14%;bottom:-12px;height:10px;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(0,0,0,.85),rgba(0,0,0,0));z-index:-1;
+  animation:fxShadow 4.2s ease-in-out infinite;animation-delay:var(--d)}
+@keyframes fxFloat{0%,100%{translate:0 0}50%{translate:0 -6px}}
+@keyframes fxShadow{0%,100%{transform:scaleX(1);opacity:.9}50%{transform:scaleX(.82);opacity:.55}}
+.strip{background:rgba(255,255,255,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 18px 40px -12px rgba(0,0,0,.7)}
+@media (prefers-reduced-motion:reduce){.tile .ico,.tile .wrapi::after,.wall .b{animation:none}}
+</style>
+</head>
+<body>
+<div class="wall">
+  <span class="b" style="left:-12%;top:-18%;width:76%;height:52%;background:#1f4e78;opacity:.55"></span>
+  <span class="b" style="left:58%;top:-8%;width:62%;height:40%;background:#2b3f7a;opacity:.38"></span>
+  <span class="b" style="left:-24%;top:58%;width:84%;height:46%;background:#123047;opacity:.42"></span>
+  <span class="nz"></span>
+</div>
+
+<div class="home">
+  <div class="sbar">
+    <span class="num" id="sbT">9:41</span>
+    <span class="r">
+      <span class="bars"><i style="height:4px"></i><i style="height:6px"></i><i style="height:8px"></i><i style="height:10px"></i></span>
+      <svg width="15" height="11" viewBox="0 0 16 12" fill="none"><path d="M8 10.6l1.9-2.3a2.9 2.9 0 0 0-3.8 0L8 10.6z" fill="#fff"/><path d="M3.1 5.5a7.6 7.6 0 0 1 9.8 0M.7 2.8a11.3 11.3 0 0 1 14.6 0" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span class="batt"><b></b></span>
+    </span>
+  </div>
+
+  <div class="hd"><div class="t num" id="hT">9:41</div><div class="d" id="hD"></div></div>
+
+  <div class="grid" id="grid"></div>
+  <div class="spacer"></div>
+  <div class="strip" id="strip"></div>
+  <div class="hbar"></div>
+</div>
+
+<div class="win" id="win">
+  <div class="nav">
+    <button class="bk" id="bk"><svg viewBox="0 0 11 18" fill="none"><path d="M9.5 1.5L2 9l7.5 7.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="bkT">ホーム</span></button>
+    <span class="tt" id="navT"></span>
+    <button class="ac" id="ac" style="display:none"></button>
+  </div>
+  <div class="scroll" id="sc"></div>
+  <div class="ind"><i id="hi"></i></div>
+</div>
+
+<div class="sheet" id="sheet"><div class="in" id="shIn"></div></div>
+
+<script>
+/* ==================== 素材 ==================== */
+const CHK=`<svg viewBox="0 0 12 12" fill="none"><path d="M1.6 6.2l3 3L10.4 2.6" stroke="#000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const CV=`<svg class="cv" viewBox="0 0 8 13" fill="none"><path d="M1.3 1.3L6.7 6.5l-5.4 5.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const XI=`<svg viewBox="0 0 14 14" fill="none"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+const WARN=`<svg viewBox="0 0 16 16" fill="none"><path d="M8 1.6l6.4 12H1.6L8 1.6z" stroke="#ff8f86" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 6.4v3.2" stroke="#ff8f86" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="11.8" r=".9" fill="#ff8f86"/></svg>`;
+
+/* 統一トーンのアイコン（線は白・太さ1.9・角丸） */
+const GL={
+ gijiroku:`<g stroke="currentColor" stroke-width="1.9" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="10.5" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"/><path d="M12 18v3"/></g>`,
+ apps:`<g stroke="currentColor" stroke-width="1.9" fill="none"><rect x="3.5" y="3.5" width="7.5" height="7.5" rx="2.2"/><rect x="13" y="3.5" width="7.5" height="7.5" rx="2.2"/><rect x="3.5" y="13" width="7.5" height="7.5" rx="2.2"/><rect x="13" y="13" width="7.5" height="7.5" rx="2.2"/></g>`,
+ money:`<g stroke="currentColor" stroke-width="1.9" fill="none" stroke-linecap="round"><path d="M7 5l5 6 5-6"/><path d="M12 11v8M7.5 13.5h9M7.5 17h9"/></g>`,
+ guide:`<g stroke="currentColor" stroke-width="1.9" fill="none" stroke-linejoin="round"><path d="M12 6.5C10.7 5 8.8 4.3 5 4.3v13c3.8 0 5.7.7 7 2.2 1.3-1.5 3.2-2.2 7-2.2v-13c-3.8 0-5.7.7-7 2.2z"/><path d="M12 6.5v13"/></g>`,
+ dec:`<g stroke="currentColor" stroke-width="2.1" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l4.5 4.5L20 5.5"/></g>`,
+ live:`<g stroke="currentColor" stroke-width="1.9" fill="none"><circle cx="12" cy="12" r="8.2"/><path d="M3.8 12h16.4M12 3.8c4.2 4.6 4.2 11.8 0 16.4-4.2-4.6-4.2-11.8 0-16.4z"/></g>`,
+ word:`<g stroke="currentColor" stroke-width="1.9" fill="none" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9.5h5M8 13h8M8 16.5h5.5"/></g>`,
+ help:`<g stroke="currentColor" stroke-width="1.9" fill="none" stroke-linecap="round"><circle cx="12" cy="12" r="8.2"/><path d="M9.6 9.6a2.5 2.5 0 1 1 3.2 2.4c-.6.2-.8.7-.8 1.3"/></g><circle cx="12" cy="16.6" r="1" fill="currentColor"/>`
+};
+const TINT={gijiroku:"#ffd60a",apps:"#5ac8fa",money:"#30d158",guide:"#ff9f0a",dec:"#40c8e0",live:"#c78bf5",word:"#9aa0a6",help:"#ff7a95"};
+const icon=k=>{const c=TINT[k];return `<span class="ico" style="color:${c};background:linear-gradient(160deg,rgba(255,255,255,.15),rgba(255,255,255,.04));border:.5px solid ${c}59;box-shadow:0 5px 16px rgba(0,0,0,.42),inset 0 0 18px ${c}26;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)"><svg viewBox="0 0 24 24">${GL[k]}</svg></span>`;};
+/* ==================== データ ==================== */
+const STAGES=[
+ {n:"1 聞く",ask:["今、何に一番困っているか","今はどうやっているか（紙・Excel・LINE）","使うのは誰で、何人か","アプリの中でお金は動くか","最後にOKを出すのは誰か","いつまでに必要か、その理由"],
+  dec:["この案件を受けるか","次回の打ち合わせ日"],warn:"決裁者を聞かずに進めない。紙やExcelの現物は写真に撮る。"},
+ {n:"2 見積る",ask:["予算の目安はいくらか","補助金を使う予定はあるか","初期費用と月額、どちらを抑えたいか"],
+  dec:["必須の機能","あると良い機能（次回以降）","今回やらないこと","初期費用・月額・別途実費","納期","支払条件"],warn:"金額と納期は代表の承認後に出す。その場で即答しない。"},
+ {n:"3 決める",ask:["削除は本当に消すのか、非表示か","CSV出力は必要か","誰がどこまで見えてよいか（金額・個人情報）"],
+  dec:["利用者の種類と権限","画面の一覧と遷移","各画面の項目","お金の計算ルール","通知（誰に・いつ・何を）","最後にデザイン"],warn:"ここで線を引く。以降の変更は追加費用・納期延長と書面で合意する。"},
+ {n:"4 作る",ask:["途中で触ってもらえる人は誰か"],
+  dec:["週次報告の曜日","追加要望の扱い（無償か別途か）"],warn:"完成してから見せない。テスト用URLを早く渡す。"},
+ {n:"5 試す",ask:["いつまでに先方テストを終えられるか"],
+  dec:["不具合（無償）と仕様変更（別途）の切り分け","検収の方法"],warn:"スマホ実機・決済・通知は自分で試してから渡す。"},
+ {n:"6 出す",ask:["公開日と、公開後に連絡がつく先"],
+  dec:["公開日","アカウントの引き渡し方法","マニュアルの形式"],warn:"本番でも決済を1件テストする。"},
+ {n:"7 続ける",ask:["困ったときの連絡先と対応時間"],
+  dec:["保守契約の有無と月額","月1定例の日程"],warn:"保守契約がない場合は都度お見積りと先に伝える。"}];
+const WORDS=[["要件定義","作るものを文章で確定させること。ここが曖昧だと、あとで必ず揉めます。"],
+ ["決裁者","最終的にOKを出す人。担当者とは限りません。第1回で必ず特定します。"],
+ ["範囲外","今回は作らないと決めたこと。書いておかないと無料でやることになります。"],
+ ["検収","先方が確認しましたと意思表示すること。ここで初めて請求できます。"],
+ ["本番とテスト","本番はお客様が使うもの。テストは社内確認用。本番データをテストに使ってはいけません。"],
+ ["RLS","データベースの、行ごとの見せる見せない設定。個人情報を扱うなら必須です。"],
+ ["保守","公開後の面倒を見る契約。有無をはっきりさせないと無限に無料対応になります。"]];
+const ST={make:["制作中","tg-make","var(--amber)"],done:["制作完了","tg-done","var(--teal)"],live:["公開中","tg-live","var(--green)"],stop:["停止","tg-stop","var(--t2)"]};
+const SEED=[
+ {name:"MyCoach",status:"live",stage:7,client:"自社サービス",owner:"森下",
+  money:[{id:"m1",t:"in",label:"月額利用料",amount:36000,rec:true,status:"paid"},
+         {id:"m2",t:"out",label:"Supabase",amount:3800,rec:true},{id:"m3",t:"out",label:"Netlify",amount:2900,rec:true},
+         {id:"m4",t:"out",label:"決済手数料",amount:4200,rec:true}]},
+ {name:"GOLFEED 受発注",status:"live",stage:7,client:"自社／GOLFEED",owner:"森下",
+  money:[{id:"g1",t:"in",label:"システム利用料",amount:50000,rec:true,status:"paid"},
+         {id:"g2",t:"out",label:"サーバー",amount:1800,rec:true}]},
+ {name:"鉄筋検査院",status:"done",stage:6,client:"片桐工業様",owner:"森下",
+  money:[{id:"t1",t:"in",label:"開発費 残金",amount:400000,rec:false,ym:new Date().toISOString().slice(0,7),status:"billed"},
+         {id:"t2",t:"out",label:"サーバー",amount:2200,rec:true}]},
+ {name:"MySalon",status:"make",stage:3,client:"自社サービス",owner:"森下",
+  working:"画面の項目を確定させている",next:"権限表を作って先方に確認",important:"仕様確定の書面をまだ交わしていない"},
+ {name:"AI秘書",status:"make",stage:4,client:"社内",owner:"森下",working:"LINEの受け取り部分を実装中",next:"テスト用URLを共有する"},
+ {name:"名刺管理",status:"done",stage:6,client:"社内",owner:"森下"}];
+
+/* ==================== 状態 ==================== */
+let DB={apps:[]}, cur=null, filter="all", stack=[], zoomFrom=null;
+let curYM=new Date().toISOString().slice(0,7);
+const $=i=>document.getElementById(i);
+const esc=s=>String(s??"").replace(/[<>&"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;"}[c]));
+const today=()=>new Date().toLocaleDateString("ja-JP",{year:"numeric",month:"2-digit",day:"2-digit"});
+const uid=p=>p+Date.now().toString(36)+Math.floor(Math.random()*999).toString(36);
+const yen=n=>"¥"+Math.round(n||0).toLocaleString("ja-JP");
+const ymL=y=>y.slice(0,4)+"年"+(+y.slice(5,7))+"月";
+const shiftYM=(y,d)=>{const[a,b]=y.split("-").map(Number);const t=new Date(a,b-1+d,1);
+  return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0");};
+
+/* 保存場所は公開ページ用の db。棚は apps/<アプリのid>（minutes を除く）と minutes/<議事録のid>（appId 付き）の2つ */
+let db=null, sample=null, loaded=false;
+const OPEN_LINK="このアプリは、公開したリンクから開いてください。";
+let lastSaved={};                 /* パスごとに、前回保存した JSON 文字列 */
+const clone=v=>JSON.parse(JSON.stringify(v));
+function docsOf(){
+  const out={};
+  DB.apps.forEach(a=>{
+    const {minutes,...rest}=a;
+    out["apps/"+a.id]=clone(rest);
+    (minutes||[]).forEach(m=>{out["minutes/"+m.id]=clone({...m,appId:a.id});});
+  });
+  return out;
+}
+function stripMsg(t){
+  $("strip").innerHTML=`<div class="cap"><span>いまの状況</span><span></span></div><div class="nil">${esc(t)}</div>`;
+}
+async function boot(){
+  db = window.claude && window.claude.use ? await window.claude.use("db") : null;
+  sample = window.claude && window.claude.use ? await window.claude.use("sample") : null;
+  if(!db){ paintHome(); stripMsg(OPEN_LINK); return; }
+  let apps, mins;
+  try{
+    apps=(await db.collection("apps").get()).docs.map(d=>clone(d.data()||{}));
+    mins=(await db.collection("minutes").get()).docs.map(d=>clone(d.data()||{}));
+  }catch(e){ paintHome(); stripMsg("読み込めませんでした。ページを開き直してください。"); return; }
+  apps=apps.filter(a=>a&&a.id);
+  const byId={}; apps.forEach(a=>{a.minutes=[];byId[a.id]=a;});
+  mins.forEach(m=>{ if(!m||!byId[m.appId])return; const {appId,...rest}=m; byId[appId].minutes.push(rest); });
+  apps.forEach(a=>a.minutes.sort((x,y)=>String(x.id).localeCompare(String(y.id))));
+  DB={apps};
+  lastSaved={}; Object.entries(docsOf()).forEach(([p,b])=>lastSaved[p]=JSON.stringify(b));
+  loaded=true;
+  if(!DB.apps.length){
+    DB={apps:SEED.map(s=>({id:uid("a"),due:"",url:"",decided:[],open:[],meetings:[],checks:{},money:[],minutes:[],todos:[],...s}))};
+    await save();
+  }
+  paintHome();
+}
+/* 同時に呼ばれても順番に1回ずつ書く */
+let saving=Promise.resolve();
+function save(){ return saving=saving.then(saveNow,saveNow); }
+async function saveNow(){
+  try{
+    if(!db||!loaded) throw new Error("no db");
+    const now=docsOf();
+    for(const [p,b] of Object.entries(now)){
+      const s=JSON.stringify(b);
+      if(lastSaved[p]===s) continue;
+      await db.doc(p).set(b);
+      lastSaved[p]=s;
+    }
+    for(const p of Object.keys(lastSaved)){
+      if(p in now) continue;
+      await db.doc(p).delete();
+      delete lastSaved[p];
+    }
+  }
+  catch(e){ alert("保存できませんでした。通信を確認してください。"); }
+}
+
+/* ==================== ホーム ==================== */
+const TILES=[
+ {k:"gijiroku",n:"議事録",go:scMinutes},
+ {k:"apps",n:"制作アプリ",go:()=>{filter="all";scApps();}},
+ {k:"money",n:"収支",go:scMoney,badge:()=>DB.apps.reduce((n,a)=>n+(a.money||[]).filter(e=>e.t==="in"&&e.status==="billed").length,0)},
+ {k:"dec",n:"決まったこと",go:scDec,badge:()=>DB.apps.reduce((n,a)=>n+(a.open||[]).length,0)},
+ {k:"guide",n:"手順書",go:scGuide},
+ {k:"live",n:"公開アプリ",go:()=>{filter="live";scApps();}},
+ {k:"word",n:"用語集",go:scWord},
+ {k:"help",n:"使い方",go:scHelp}];
+
+function paintHome(){
+  $("grid").innerHTML="";
+  TILES.forEach(t=>{
+    const b=document.createElement("button"); b.className="tile";
+    const n=t.badge?t.badge():0;
+    b.innerHTML=`<span class="wrapi">${n?`<span class="dot-b num">${n}</span>`:""}${icon(t.k)}</span><span class="lb">${t.n}</span>`;
+    b.onclick=()=>{ zoomFrom=b.querySelector(".ico"); t.go(); };
+    $("grid").appendChild(b);
+  });
+  const rows=[];
+  DB.apps.forEach(a=>a.important&&rows.push(["imp","var(--red)",a.important,a]));
+  DB.apps.forEach(a=>a.working&&rows.push(["now","var(--amber)",a.working,a]));
+  DB.apps.forEach(a=>a.next&&rows.push(["next","var(--blue)",a.next,a]));
+  const n=DB.apps.filter(a=>a.status==="make").length;
+  $("strip").innerHTML=`<div class="cap"><span>いまの状況</span><span>${n?"制作中 "+n:""}</span></div>`+
+    (rows.length?rows.map(([k,c,tx,a])=>`<button class="sr" data-s="${a.id}"><i style="background:${c}"></i><b>${esc(tx)}</b><small>${esc(a.name)}</small></button>`).join("")
+     :`<div class="nil">作業中の内容や重要事項は、アプリの編集から書けます。</div>`);
+  $("strip").querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{zoomFrom=null;scDetail(b.dataset.s);});
+}
+
+/* ==================== 画面制御 ==================== */
+function openWin(){
+  const w=$("win"); if(w.classList.contains("on")) return;
+  w.classList.add("on");
+  if(!zoomFrom){ w.style.cssText=""; return; }
+  const r=zoomFrom.getBoundingClientRect();
+  const sc=Math.max(r.width/innerWidth,r.height/innerHeight);
+  const tx=r.left+r.width/2-innerWidth/2, ty=r.top+r.height/2-innerHeight/2;
+  w.style.transition="none"; w.style.transform=`translate(${tx}px,${ty}px) scale(${sc})`;
+  w.style.opacity="0"; w.style.borderRadius="30px";
+  requestAnimationFrame(()=>{
+    w.style.transition="transform .42s cubic-bezier(.2,.9,.25,1),opacity .2s ease,border-radius .42s";
+    w.style.transform="none"; w.style.opacity="1"; w.style.borderRadius="0";
+  });
+}
+function closeWin(){
+  const w=$("win");
+  if(zoomFrom){
+    const r=zoomFrom.getBoundingClientRect();
+    const sc=Math.max(r.width/innerWidth,r.height/innerHeight);
+    const tx=r.left+r.width/2-innerWidth/2, ty=r.top+r.height/2-innerHeight/2;
+    w.style.transition="transform .33s cubic-bezier(.4,0,.6,1),opacity .28s,border-radius .33s";
+    w.style.transform=`translate(${tx}px,${ty}px) scale(${sc})`; w.style.opacity="0"; w.style.borderRadius="30px";
+    setTimeout(()=>{w.classList.remove("on");w.style.cssText="";},310);
+  } else w.classList.remove("on");
+  stack=[]; paintHome();
+}
+$("hi").onclick=closeWin;
+$("bk").onclick=()=>{ const p=stack.pop(); p?p():closeWin(); };
+const push=f=>stack.push(f);
+function view(title,sub,html,o={}){
+  openWin();
+  $("navT").textContent=o.nav||title;
+  $("bkT").textContent=o.back||"ホーム";
+  $("ac").style.display=o.act?"block":"none";
+  if(o.act){$("ac").textContent=o.act;$("ac").onclick=o.onAct;}
+  $("sc").innerHTML=`<div class="ttl">${esc(title)}</div>${sub?`<div class="sub">${esc(sub)}</div>`:""}${html}`;
+  $("sc").scrollTop=0;
+}
+const sec=(cap,right,inner,hint="")=>`<div class="sec">${cap?`<div class="cap"><span>${cap}</span><span>${right||""}</span></div>`:""}
+  <div class="card">${inner}</div>${hint?`<div class="hint">${hint}</div>`:""}</div>`;
+const nil=t=>`<div class="row"><span class="m" style="color:var(--t2)">${t}</span></div>`;
+
+/* ==================== 制作アプリ ==================== */
+function scApps(){
+  const segs=[["all","すべて"],["make","制作中"],["done","完了"],["live","公開中"]];
+  const list=DB.apps.filter(a=>filter==="all"||a.status===filter);
+  view("制作アプリ","制作中・完了・公開をまとめて管理します",
+   `<div class="seg">${segs.map(([k,n])=>`<button data-f="${k}" class="${filter===k?"on":""}">${n}</button>`).join("")}</div>`+
+   sec("","",list.length?list.map(a=>{
+     const [nm,cls,col]=ST[a.status]||ST.make, op=(a.open||[]).length;
+     return `<button class="row" data-g="${a.id}"><span class="dt" style="background:${col}"></span>
+       <span class="m"><b>${esc(a.name)}</b><small>${esc(a.client||"—")}${op?"　未決 "+op:""}</small>
+       <span class="prog">${STAGES.map((s,i)=>`<i class="${i+1<a.stage?"f":i+1===a.stage?"c":""}"></i>`).join("")}</span></span>
+       <span class="tag ${cls}">${nm}</span>${CV}</button>`;}).join("") : nil("この分類のアプリはありません")),
+   {act:"＋",onAct:()=>formApp(null)});
+  $("sc").querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{filter=b.dataset.f;scApps();});
+  $("sc").querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{push(scApps);scDetail(b.dataset.g);});
+}
+
+/* ==================== 詳細 ==================== */
+function scDetail(id){
+  cur=DB.apps.find(a=>a.id===id); if(!cur) return scApps();
+  const st=STAGES[cur.stage-1], dec=cur.decided||[], open=cur.open||[], mt=cur.meetings||[], c=calc(cur,curYM);
+  const td=cur.todos||[], mins=(cur.minutes||[]).slice().sort((x,y)=>(y.date||"").localeCompare(x.date||""));
+  const [snm]=ST[cur.status]||ST.make;
+  view(cur.name,`${snm}　${cur.client||""}`,
+   sec("いまの状況","編集から書き換え",
+     `<div class="row"><span class="tag tg-now">作業中</span><span class="m"><b>${esc(cur.working||"—")}</b></span></div>
+      <div class="row"><span class="tag tg-next">次に</span><span class="m"><b>${esc(cur.next||"—")}</b></span></div>
+      <div class="row"><span class="tag tg-imp">重要</span><span class="m"><b style="${cur.important?"color:#ff9a92":""}">${esc(cur.important||"—")}</b></span></div>`)+
+   sec("進み具合",`${cur.stage} / 7`,
+     STAGES.map((s,i)=>`<button class="row" data-st="${i+1}">
+        <span class="ck ${i+1<cur.stage?"on":""}">${CHK}</span>
+        <span class="m"><b style="${i+1===cur.stage?"color:var(--amber);font-weight:600":""}">${esc(s.n)}</b></span>
+        ${i+1===cur.stage?'<span class="v" style="color:var(--amber)">いまここ</span>':""}</button>`).join(""))+
+   sec("この段階で聞くこと","",
+     `<div class="row"><span class="m"><ul class="q">${st.ask.map(a=>`<li>${esc(a)}</li>`).join("")}</ul>
+       <div class="warn">${WARN}<span>${esc(st.warn)}</span></div></span></div>`)+
+   sec("この段階で決めること","押すと記録されます",
+     st.dec.map((d,i)=>{const k=`s${cur.stage}_${i}`,on=(cur.checks||{})[k];
+       return `<button class="row" data-ck="${k}" data-tx="${esc(d)}"><span class="ck ${on?"on":""}">${CHK}</span><span class="m"><b>${esc(d)}</b></span></button>`;}).join(""))+
+   sec("決まったこと",dec.length+"件",
+     (dec.length?dec.map((d,i)=>`<div class="row"><span class="ck on">${CHK}</span>
+        <span class="m"><b>${esc(d.text)}</b><small>${esc(d.date)}${d.by?"　"+esc(d.by):""}</small></span>
+        <button class="x" data-dd="${i}">${XI}</button></div>`).join(""):"")+
+     `<div class="row"><input class="inline" id="iD" placeholder="決まったことを書く"><button class="addbtn" id="aD">追加</button></div>`)+
+   sec("まだ決まっていないこと",open.length+"件",
+     (open.length?open.map((o,i)=>`<div class="row"><button class="ck" data-fx="${i}">${CHK}</button>
+        <span class="m"><b>${esc(o.text)}</b><small>${esc(o.date||"")}${o.who?"　"+esc(o.who):""}</small></span>
+        <button class="x" data-do="${i}">${XI}</button></div>`).join(""):"")+
+     `<div class="row"><input class="inline" id="iO" placeholder="決まっていないことを書く"><button class="addbtn" id="aO">追加</button></div>`,
+     "丸を押すと「決まったこと」へ移ります。")+
+   sec("宿題",td.length+"件",
+     td.length?td.map(t=>`<div class="row"><button class="ck ${t.done?"on":""}" data-td="${t.id}">${CHK}</button>
+        <span class="m"><b style="${t.done?"color:var(--t2);text-decoration:line-through":""}">${esc(t.text)}</b><small>${esc(t.who||"")}${t.due?"　"+esc(t.due)+" まで":""}</small></span>
+        <button class="x" data-tr="${t.id}">${XI}</button></div>`).join(""):nil("まだありません"),
+     "丸を押すと済みになります。")+
+   sec("今月の収支",ymL(curYM),
+     `<button class="row" id="goM"><span class="m"><b>入金 ${yen(c.paid)}　支出 ${yen(c.out)}</b>
+       <small>${c.billed?"請求済・未入金 "+yen(c.billed):"未入金なし"}</small></span>
+       <span class="v num" style="color:${c.net>=0?"var(--green)":"var(--red)"}">${c.net>=0?"＋":"−"}${yen(Math.abs(c.net))}</span>${CV}</button>`)+
+   sec("議事録",mins.length+"件",
+     mins.length?mins.map(m=>`<button class="row" data-mn="${m.id}"><span class="m"><b>${esc(m.date)}　${esc(m.who||"")}</b>
+       <small>${mSmall(cur,m)}</small></span>${CV}</button>`).join(""):nil("まだありません"),
+     "押すと原文が読めます。")+
+   `<button class="big pri" id="aM">打ち合わせを記録する</button>`+
+   sec("打ち合わせの履歴",mt.length+"件",
+     mt.length?mt.slice().reverse().map(m=>`<div class="row"><span class="m"><b>${esc(m.date)}　${esc(m.who||"")}</b>
+       <small style="white-space:pre-wrap">${esc(m.memo)}</small></span></div>`).join(""):nil("まだありません"))+
+   sec("基本情報","",
+     `<div class="row"><span class="m"><b>先方</b></span><span class="v">${esc(cur.client||"—")}</span></div>
+      <div class="row"><span class="m"><b>当社担当</b></span><span class="v">${esc(cur.owner||"—")}</span></div>
+      <div class="row"><span class="m"><b>納期</b></span><span class="v">${esc(cur.due||"—")}</span></div>
+      <div class="row"><span class="m"><b>URL</b></span><span class="v">${cur.url?`<a href="${esc(cur.url)}" target="_blank" style="color:var(--blue)">開く</a>`:"—"}</span></div>`),
+   {back:"制作アプリ",nav:cur.name,act:"編集",onAct:()=>formApp(cur)});
+
+  const re=()=>scDetail(cur.id);
+  $("sc").querySelectorAll("[data-st]").forEach(b=>b.onclick=async()=>{cur.stage=+b.dataset.st;await save();re();});
+  $("sc").querySelectorAll("[data-ck]").forEach(b=>b.onclick=async()=>{
+    cur.checks=cur.checks||{};const k=b.dataset.ck;
+    if(cur.checks[k])delete cur.checks[k];
+    else{cur.checks[k]=true;(cur.decided=cur.decided||[]).push({text:b.dataset.tx,date:today(),by:""});}
+    await save();re();});
+  const add=async(inp,arr)=>{const v=$(inp).value.trim();if(!v)return;
+    (cur[arr]=cur[arr]||[]).push(arr==="decided"?{text:v,date:today(),by:""}:{text:v,date:today(),who:""});await save();re();};
+  $("aD").onclick=()=>add("iD","decided"); $("iD").onkeydown=e=>e.key==="Enter"&&add("iD","decided");
+  $("aO").onclick=()=>add("iO","open");    $("iO").onkeydown=e=>e.key==="Enter"&&add("iO","open");
+  $("sc").querySelectorAll("[data-fx]").forEach(b=>b.onclick=async()=>{
+    const o=cur.open.splice(+b.dataset.fx,1)[0];cur.decided.push({text:o.text,date:today(),by:""});await save();re();});
+  $("sc").querySelectorAll("[data-dd]").forEach(b=>b.onclick=async()=>{
+    if(!confirm("この記録を消しますか？"))return;cur.decided.splice(+b.dataset.dd,1);await save();re();});
+  $("sc").querySelectorAll("[data-do]").forEach(b=>b.onclick=async()=>{cur.open.splice(+b.dataset.do,1);await save();re();});
+  $("sc").querySelectorAll("[data-td]").forEach(b=>b.onclick=async()=>{
+    const t=cur.todos.find(x=>x.id===b.dataset.td);if(!t)return;t.done=!t.done;await save();re();});
+  $("sc").querySelectorAll("[data-tr]").forEach(b=>b.onclick=async()=>{
+    if(!confirm("この宿題を消しますか？"))return;cur.todos=cur.todos.filter(x=>x.id!==b.dataset.tr);await save();re();});
+  $("sc").querySelectorAll("[data-mn]").forEach(b=>b.onclick=()=>{
+    const id=cur.id;push(()=>scDetail(id));scMinute(id,b.dataset.mn,cur.name);});
+  $("aM").onclick=()=>formMeet(cur.id);
+  $("goM").onclick=()=>{push(()=>scDetail(cur.id));scMoneyApp(cur.id);};
+}
+
+/* ==================== 収支 ==================== */
+const inM=(e,ym)=>e.rec?true:(e.ym||"")===ym;
+function calc(a,ym){
+  const m=(a.money||[]).filter(e=>inM(e,ym));
+  const sum=f=>m.filter(f).reduce((s,e)=>s+ +e.amount,0);
+  const paid=sum(e=>e.t==="in"&&e.status==="paid"), billed=sum(e=>e.t==="in"&&e.status==="billed"),
+        unbilled=sum(e=>e.t==="in"&&e.status==="unbilled"), out=sum(e=>e.t==="out");
+  return {paid,billed,unbilled,out,net:paid-out,rows:m};
+}
+function scMoney(){
+  const per=DB.apps.map(a=>({a,c:calc(a,curYM)})).filter(x=>x.c.rows.length);
+  const T=per.reduce((t,x)=>({paid:t.paid+x.c.paid,billed:t.billed+x.c.billed,unbilled:t.unbilled+x.c.unbilled,out:t.out+x.c.out}),
+   {paid:0,billed:0,unbilled:0,out:0});
+  const net=T.paid-T.out, k=net>=0, tot=Math.max(T.paid+T.out,1);
+  view("収支",ymL(curYM)+"　入金と引き落とし",
+   `<div class="seg"><button id="pv">‹ 前の月</button><button id="tm">今月</button><button id="nx">次の月 ›</button></div>`+
+   sec("","",
+    `<div class="kpi"><div class="lab">今月の収支</div>
+      <div class="amt num" style="color:${k?"var(--green)":"var(--red)"}">${k?"＋":"−"}${yen(Math.abs(net))}</div>
+      <div class="sub2">${k?"黒字":"赤字"}　入金 ${yen(T.paid)}　支出 ${yen(T.out)}</div>
+      <div class="meter"><i style="width:${T.paid/tot*100}%;background:var(--green)"></i><i style="width:${T.out/tot*100}%;background:var(--red)"></i></div></div>
+     <div class="row"><span class="dt" style="background:var(--green)"></span><span class="m"><b>入金済み</b></span><span class="v num" style="color:var(--green)">${yen(T.paid)}</span></div>
+     <div class="row"><span class="dt" style="background:var(--amber)"></span><span class="m"><b>請求済み・未入金</b></span><span class="v num" style="color:var(--amber)">${yen(T.billed)}</span></div>
+     <div class="row"><span class="dt" style="background:var(--t3)"></span><span class="m"><b>未請求</b></span><span class="v num">${yen(T.unbilled)}</span></div>
+     <div class="row"><span class="dt" style="background:var(--red)"></span><span class="m"><b>支出・引き落とし</b></span><span class="v num" style="color:var(--red)">${yen(T.out)}</span></div>`,
+    T.billed?`請求済みで入金されていないお金が ${yen(T.billed)} あります。`:"")+
+   sec("アプリ別","押すと明細",
+    per.length?per.map(x=>`<button class="row" data-m="${x.a.id}"><span class="m"><b>${esc(x.a.name)}</b>
+      <small>入金 ${yen(x.c.paid)}　支出 ${yen(x.c.out)}${x.c.billed?"　未入金 "+yen(x.c.billed):""}</small></span>
+      <span class="v num" style="color:${x.c.net>=0?"var(--green)":"var(--red)"}">${x.c.net>=0?"＋":"−"}${yen(Math.abs(x.c.net))}</span>${CV}</button>`).join("")
+     :nil("この月の記録はありません")));
+  $("pv").onclick=()=>{curYM=shiftYM(curYM,-1);scMoney();};
+  $("nx").onclick=()=>{curYM=shiftYM(curYM,1);scMoney();};
+  $("tm").onclick=()=>{curYM=new Date().toISOString().slice(0,7);scMoney();};
+  $("sc").querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>{push(scMoney);scMoneyApp(b.dataset.m);});
+}
+const SL={paid:["入金済","var(--green)"],billed:["請求済","var(--amber)"],unbilled:["未請求","var(--t2)"]};
+function scMoneyApp(id){
+  const a=DB.apps.find(x=>x.id===id); if(!a) return scMoney();
+  const c=calc(a,curYM), ins=c.rows.filter(e=>e.t==="in"), outs=c.rows.filter(e=>e.t==="out");
+  view(a.name,ymL(curYM)+"　収支の明細",
+   sec("","",`<div class="kpi" style="padding:16px"><div class="lab">今月の差額</div>
+     <div class="amt num" style="font-size:32px;color:${c.net>=0?"var(--green)":"var(--red)"}">${c.net>=0?"＋":"−"}${yen(Math.abs(c.net))}</div></div>`)+
+   sec("入金","押すと状態が変わります",
+     ins.length?ins.map(e=>`<div class="row"><button class="ck ${e.status==="paid"?"on":""}" data-sw="${e.id}">${CHK}</button>
+       <span class="m"><b>${esc(e.label)}</b><small>${e.rec?"毎月":esc(e.ym||"一回")}　<span style="color:${SL[e.status||"unbilled"][1]}">${SL[e.status||"unbilled"][0]}</span></small></span>
+       <span class="v num" style="color:var(--green)">${yen(e.amount)}</span><button class="x" data-rm="${e.id}">${XI}</button></div>`).join("")
+      :nil("ありません"),"未請求 → 請求済 → 入金済 の順に切り替わります。")+
+   sec("支出・引き落とし","",
+     outs.length?outs.map(e=>`<div class="row"><span class="dt" style="background:var(--red)"></span>
+       <span class="m"><b>${esc(e.label)}</b><small>${e.rec?"毎月":esc(e.ym||"一回")}</small></span>
+       <span class="v num" style="color:var(--red)">${yen(e.amount)}</span><button class="x" data-rm="${e.id}">${XI}</button></div>`).join("")
+      :nil("ありません"))+
+   `<button class="big pri" id="ai">入金を追加</button><button class="big" id="ao">支出・引き落としを追加</button>`,
+   {back:"収支"});
+  const re=()=>scMoneyApp(id);
+  $("sc").querySelectorAll("[data-sw]").forEach(b=>b.onclick=async()=>{
+    const e=a.money.find(x=>x.id===b.dataset.sw);
+    e.status=e.status==="unbilled"?"billed":e.status==="billed"?"paid":"unbilled";
+    await save();re();});
+  $("sc").querySelectorAll("[data-rm]").forEach(b=>b.onclick=async()=>{
+    if(!confirm("この項目を消しますか？"))return;
+    a.money=a.money.filter(x=>x.id!==b.dataset.rm);await save();re();});
+  $("ai").onclick=()=>formMoney(a,"in",re);
+  $("ao").onclick=()=>formMoney(a,"out",re);
+}
+
+/* ==================== 手順書 ほか ==================== */
+function scGuide(){
+  view("手順書","打ち合わせ中に開いて、この順に聞きます",
+   STAGES.map(s=>sec(s.n,"",
+     `<div class="row"><span class="m"><b style="font-size:13px;color:var(--t2)">聞くこと</b><ul class="q">${s.ask.map(a=>`<li>${esc(a)}</li>`).join("")}</ul></span></div>
+      <div class="row"><span class="m"><b style="font-size:13px;color:var(--t2)">決めること</b><ul class="q am">${s.dec.map(d=>`<li>${esc(d)}</li>`).join("")}</ul>
+      <div class="warn">${WARN}<span>${esc(s.warn)}</span></div></span></div>`)).join(""));
+}
+function scDec(){
+  const dec=[],open=[];
+  DB.apps.forEach(a=>{(a.decided||[]).forEach(d=>dec.push({...d,app:a.name,id:a.id}));
+                      (a.open||[]).forEach(o=>open.push({...o,app:a.name,id:a.id}));});
+  dec.sort((x,y)=>(y.date||"").localeCompare(x.date||""));
+  view("決まったこと","全アプリ分をまとめて表示します",
+   sec("まだ決まっていないこと",open.length+"件",
+     open.length?open.map(o=>`<button class="row" data-g="${o.id}"><span class="dt" style="background:var(--red)"></span>
+       <span class="m"><b>${esc(o.text)}</b><small>${esc(o.app)}　${esc(o.date||"")}</small></span>${CV}</button>`).join(""):nil("未決はありません"))+
+   sec("決まったこと",dec.length+"件",
+     dec.length?dec.map(d=>`<button class="row" data-g="${d.id}"><span class="dt" style="background:var(--green)"></span>
+       <span class="m"><b>${esc(d.text)}</b><small>${esc(d.app)}　${esc(d.date||"")}${d.by?"　"+esc(d.by):""}</small></span>${CV}</button>`).join(""):nil("まだありません")));
+  $("sc").querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{push(scDec);scDetail(b.dataset.g);});
+}
+/* ==================== 議事録 ==================== */
+const mCnt=(a,m)=>["decided","open","todos"].map(k=>(a[k]||[]).filter(x=>x.from===m.id).length);
+const mSmall=(a,m)=>{if(!m.aiDone)return `<span style="color:var(--amber)">まだ読み取っていません</span>`;
+  const[d,o,t]=mCnt(a,m);return `決まった ${d}　まだ ${o}　宿題 ${t}`;};
+function scMinutes(){
+  const all=[];
+  DB.apps.forEach(a=>(a.minutes||[]).forEach(m=>all.push({a,m})));
+  all.sort((x,y)=>(y.m.date||"").localeCompare(x.m.date||""));
+  const ym=today().slice(0,7), mo=all.filter(x=>(x.m.date||"").startsWith(ym)).length;
+  const mt=[];
+  DB.apps.forEach(a=>(a.meetings||[]).forEach(m=>mt.push({...m,app:a.name,id:a.id})));
+  mt.sort((x,y)=>(y.date||"").localeCompare(x.date||""));
+  view("議事録","打ち合わせが終わったら、文字起こしを貼ります",
+   `<button class="big pri" id="pm">議事録を貼る</button>`+
+   sec("議事録",`今月 ${mo}件`,
+     all.length?all.map(({a,m})=>`<button class="row" data-mn="${a.id}|${m.id}"><span class="m"><b>${esc(m.date)}　${esc(a.name)}</b>
+       <small>${esc(m.who||"")}</small><small>${mSmall(a,m)}</small></span>${CV}</button>`).join(""):nil("まだありません"))+
+   `<button class="big" id="nm">打ち合わせを記録する</button>`+
+   sec("打ち合わせの履歴",mt.length+"件",
+     mt.length?mt.map(m=>`<button class="row" data-g="${m.id}"><span class="m"><b>${esc(m.app)}</b>
+       <small>${esc(m.date)}　${esc(m.who||"")}</small></span>${CV}</button>`).join(""):nil("まだありません")));
+  const need=()=>{if(!DB.apps.length){alert("先にアプリを登録してください。");return false;}return true;};
+  $("pm").onclick=()=>need()&&formMinutes(DB.apps[0].id);
+  $("nm").onclick=()=>need()&&formMeet(DB.apps[0].id);
+  $("sc").querySelectorAll("[data-mn]").forEach(b=>b.onclick=()=>{
+    const[aid,mid]=b.dataset.mn.split("|");push(scMinutes);scMinute(aid,mid,"議事録");});
+  $("sc").querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{push(scMinutes);scDetail(b.dataset.g);});
+}
+function scMinute(aid,mid,back){
+  const a=DB.apps.find(x=>x.id===aid), m=a&&(a.minutes||[]).find(x=>x.id===mid);
+  if(!m) return scMinutes();
+  const f=k=>(a[k]||[]).filter(x=>x.from===m.id);
+  const dec=f("decided"), open=f("open"), td=f("todos");
+  const li=(l,col,sm)=>l.length?l.map(x=>`<div class="row"><span class="dt" style="background:${col}"></span>
+     <span class="m"><b>${esc(x.text)}</b>${sm?`<small>${sm(x)}</small>`:""}</span></div>`).join(""):nil("ありません");
+  view("議事録",`${a.name}　${m.date}${m.who?"　"+m.who:""}`,
+   (m.aiDone
+    ? sec("決まったこと",dec.length+"件",li(dec,"var(--green)"))+
+      sec("まだ決まっていないこと",open.length+"件",li(open,"var(--red)"))+
+      sec("宿題",td.length+"件",li(td,"var(--amber)",t=>`${esc(t.who||"")}${t.due?"　"+esc(t.due)+" まで":""}${t.done?"　済み":""}`))
+    : `<div class="sec"><div class="warn" style="margin:0 5px">${WARN}<span>まだ読み取っていません。原文は保存されています。</span></div></div>
+       <button class="big pri" id="rd">読み取る</button><div id="er"></div>`)+
+   sec("原文",esc(m.source||""),
+     `<div class="row"><span class="m"><small style="white-space:pre-wrap;color:#dcdce0;font-size:14.5px;line-height:1.7">${esc(m.raw)}</small></span></div>`),
+   {back:back||"議事録",nav:"議事録"});
+  if(!m.aiDone)$("rd").onclick=()=>runRead(a,m,$("rd"),$("er"));
+}
+
+/* AIに渡す文章（統合設計書 5-4 のうち decided / open / todos と decider のみ） */
+const PROMPT=`あなたは打ち合わせの議事録を読んで、アプリ開発の聞き取り項目を埋める係です。
+下の議事録を読み、JSONだけを返してください。
+前置き、説明、コードの囲み記号は一切書かないでください。
+
+書き方の決まり：
+- 議事録に書かれていないことは、絶対に推測しない。分からなければ null にする
+- conf は「高」＝はっきり言っている、「中」＝そう読める、「低」＝たぶんそう、の3つ
+- src は議事録の中の該当箇所を20字以内で抜き出す
+- decider は、最後にOKを出す人（決裁者）。v にその人を書く
+- 決まったことと、まだ決まっていないことを取り違えない。
+  「〜にします」「〜で決まりです」＝決まったこと
+  「持ち帰ります」「検討します」「確認します」＝まだ決まっていないこと
+- 「来週金曜日」「今月中」「月末」などの言い方は、「打ち合わせの日付」を基準に YYYY-MM-DD の日付に直して due に入れる。「今月中」「月末」はその月の末日にする。日付に直せないときだけ null
+- 最後にOKを出す人が自分のことを「私」と言っている場合は、出席者の欄から名前を当てはめる。当てはめられなければ「先方の代表者」のように立場を書く
+- 同じ話を途中で言い直している場合は、最後に言った内容だけを使う
+
+返すJSON：
+{
+ "decided": ["決まったこと を1行ずつ"],
+ "open":    ["まだ決まっていないこと を1行ずつ"],
+ "todos":   [{"text":"宿題","who":"当社|先方","due":"2026-09-30 か null"}],
+ "decider": {"v":null,"conf":"","src":""}
+}`;
+/* 公開ページの sample.json で読む。失敗は {code} で投げる（自動でやり直さない） */
+async function askAI(m){
+  if(!sample) throw {code:"no_sample"};
+  const input = PROMPT + "\n\n打ち合わせの日付：" + (m.date||"不明") + "\n出席者：" + (m.who||"不明") + "\n\n---議事録---\n" + m.raw;
+  if(new TextEncoder().encode(input).length>60000) throw {code:"too_long"};
+  const j = await sample.json(input);
+  return {j};
+}
+async function readMinutes(m){
+  return await askAI(m);
+}
+function normAI(j){
+  j=j&&typeof j==="object"?j:{};
+  const L=v=>(Array.isArray(v)?v:[]).map(x=>String(x??"").trim()).filter(x=>x&&x!=="null");
+  const k=j.decider&&typeof j.decider==="object"?j.decider:{}, kv=String(k.v??"").trim();
+  return {decided:L(j.decided),open:L(j.open),
+    decider:kv&&kv!=="null"?{v:kv,conf:String(k.conf??""),src:String(k.src??"")}:null,
+    todos:(Array.isArray(j.todos)?j.todos:[]).filter(t=>t&&String(t.text??"").trim())
+      .map(t=>({text:String(t.text).trim(),who:t.who==="先方"?"先方":"当社",due:t.due&&t.due!=="null"?String(t.due):""}))};
+}
+async function runRead(a,m,btn,er){
+  const lb=btn.textContent;
+  btn.disabled=true; btn.textContent="読み取っています…"; er.innerHTML="";
+  /* 赤い文の下に、理由（e.code）だけを小さく出す（原因を調べるため。e.message は出さない） */
+  const fail=(t,code)=>{btn.disabled=false;btn.textContent=lb;
+    const why=code?`<small style="display:block;margin-top:4px;font-size:11.5px;line-height:1.5;color:var(--t2);word-break:break-all">理由 ${esc(code)}</small>`:"";
+    er.innerHTML=`<div class="warn" style="margin:0 var(--sp) 12px">${WARN}<span>${esc(t)}　原文は保存されています。${why}</span></div>`;};
+  let got;
+  try{ got=await readMinutes(m); }
+  catch(e){ const code=e&&typeof e==="object"&&e.code?String(e.code):"";
+    if(code==="no_sample") return fail(OPEN_LINK);
+    if(code==="too_long") return fail("議事録が長すぎます。前半と後半に分けて、2回に分けて貼ってください。");
+    return fail(code==="invalid_json"
+    ?"読み取った結果が壊れていました。お手数ですが、議事録の画面の「打ち合わせを記録する」から手で入力してください。"
+    :code==="not_granted"?"Claude の使用が許可されていません。ページを開き直して、確認の窓で許可してください。"
+    :code==="rate_limited"?"混み合っています。少し時間をおいてから、もう一度押してください。"
+    :"読み取れませんでした。もう一度押してください。",code||"なし"); }
+  const res=normAI(got.j);
+  if(!res.decided.length&&!res.open.length&&!res.todos.length&&!res.decider)
+    return fail("議事録から読み取れませんでした。手で入力してください。");
+  sheetConfirm(a,m,res);
+}
+function scWord(){
+  view("用語集","打ち合わせで出てくる言葉",
+   sec("","",WORDS.map(([w,d])=>`<div class="row"><span class="m"><b>${esc(w)}</b><small style="color:#b4b4ba;line-height:1.6;margin-top:3px">${esc(d)}</small></span></div>`).join("")));
+}
+function scHelp(){
+  view("使い方","はじめに読んでください",
+   sec("使う順番","",
+    [["新規登録でアプリを1つ作る",""],["打ち合わせ中は手順書を開き、上から順に聞く",""],
+     ["終わったら打ち合わせを記録する","決まったことと未決を1行ずつ書けば自動で振り分けます"],
+     ["段階が進んだら、詳細画面で段階を切り替える",""],["お金は収支に入れる","入金の項目を押すと請求済・入金済に変わります"]]
+     .map((x,i)=>`<div class="row"><span class="ck on" style="background:var(--blue);border-color:var(--blue);color:#fff;font-size:11px;font-weight:700">${i+1}</span>
+       <span class="m"><b>${x[0]}</b>${x[1]?`<small>${x[1]}</small>`:""}</span></div>`).join(""))+
+   sec("注意","",
+    `<div class="row"><span class="m"><b style="color:#ff8f86">記録は社内全員に共有されます</b><small>パスワードや個人の連絡先は書かないでください</small></span></div>
+     <div class="row"><span class="m"><b style="color:#ff8f86">金額と納期は代表の承認後に提示</b><small>その場で即答しない</small></span></div>`));
+}
+
+/* ==================== シート ==================== */
+const sheet=h=>{$("shIn").innerHTML=`<div class="grab"></div>`+h;$("sheet").classList.add("on");};
+const closeSheet=()=>$("sheet").classList.remove("on");
+$("sheet").onclick=e=>{if(e.target===$("sheet"))closeSheet();};
+
+function formApp(a){
+  sheet(`<div class="sh"><button id="cx">キャンセル</button><b>${a?"編集":"新規登録"}</b><button class="r" id="sv">保存</button></div>
+   <div class="fld">
+     <label>アプリ名</label><input id="n" value="${esc(a?.name||"")}" placeholder="◯◯様 予約管理アプリ">
+     <div class="two"><div><label>先方</label><input id="cl" value="${esc(a?.client||"")}" placeholder="株式会社◯◯"></div>
+     <div><label>当社担当</label><input id="ow" value="${esc(a?.owner||"")}" placeholder="森下"></div></div>
+     <div class="two"><div><label>状態</label><select id="stt">${Object.entries(ST).map(([k,v])=>`<option value="${k}" ${a?.status===k?"selected":""}>${v[0]}</option>`).join("")}</select></div>
+     <div><label>段階</label><select id="stg">${STAGES.map((s,i)=>`<option value="${i+1}" ${a?.stage===i+1?"selected":""}>${s.n}</option>`).join("")}</select></div></div>
+     <div class="two"><div><label>納期</label><input id="du" value="${esc(a?.due||"")}" placeholder="2026/02/01"></div>
+     <div><label>公開URL</label><input id="ur" value="${esc(a?.url||"")}" placeholder="https://"></div></div>
+     <label>いま作業中のこと</label><input id="wk" value="${esc(a?.working||"")}" placeholder="画面の項目を確定させている">
+     <label>次に行う作業</label><input id="nx2" value="${esc(a?.next||"")}" placeholder="権限表を作って先方に確認">
+     <label>重要事項</label><input id="im" value="${esc(a?.important||"")}" placeholder="仕様確定の書面をまだ交わしていない">
+   </div>${a?'<button class="big dan" id="dl" style="margin-top:22px">このアプリを削除</button>':""}`);
+  $("cx").onclick=closeSheet;
+  $("sv").onclick=async()=>{
+    const v=i=>$(i).value.trim();
+    if(!v("n")){alert("アプリ名を入れてください。");return;}
+    const d={name:v("n"),client:v("cl"),owner:v("ow"),status:$("stt").value,stage:+$("stg").value,
+             due:v("du"),url:v("ur"),working:v("wk"),next:v("nx2"),important:v("im")};
+    if(a)Object.assign(a,d);
+    else{a={id:uid("a"),...d,decided:[],open:[],meetings:[],checks:{},money:[],minutes:[],todos:[]};DB.apps.push(a);}
+    await save();closeSheet();scDetail(a.id);
+  };
+  if(a)$("dl").onclick=async()=>{if(!confirm(a.name+" を削除しますか？"))return;
+    DB.apps=DB.apps.filter(x=>x.id!==a.id);await save();closeSheet();filter="all";scApps();};
+}
+function formMeet(appId){
+  sheet(`<div class="sh"><button id="cx">キャンセル</button><b>打ち合わせの記録</b><button class="r" id="sv">記録</button></div>
+   <div class="fld">
+     <label>アプリ</label><select id="ap">${DB.apps.map(x=>`<option value="${x.id}" ${x.id===appId?"selected":""}>${esc(x.name)}</option>`).join("")}</select>
+     <div class="two"><div><label>日付</label><input id="dt" value="${today()}"></div>
+     <div><label>出席者</label><input id="wh" placeholder="先方 田中様／当社 森下"></div></div>
+     <label>決まったこと（1行に1つ）</label><textarea id="de" placeholder="予約はカード前払いにする&#10;キャンセルは前日まで無料"></textarea>
+     <label>まだ決まっていないこと（1行に1つ）</label><textarea id="op" placeholder="当日キャンセルの割合&#10;ロゴデータの提供時期"></textarea>
+     <label>そのほかのメモ</label><textarea id="me" style="min-height:66px" placeholder="社長確認は来週月曜"></textarea>
+   </div>`);
+  $("cx").onclick=closeSheet;
+  $("sv").onclick=async()=>{
+    const t=DB.apps.find(x=>x.id===$("ap").value); if(!t)return;
+    const L=s=>s.split("\n").map(x=>x.trim()).filter(Boolean);
+    const d=$("dt").value.trim()||today(), who=$("wh").value.trim();
+    t.decided=t.decided||[];t.open=t.open||[];t.meetings=t.meetings||[];
+    L($("de").value).forEach(x=>t.decided.push({text:x,date:d,by:who}));
+    L($("op").value).forEach(x=>t.open.push({text:x,date:d,who}));
+    t.meetings.push({date:d,who,memo:$("me").value.trim()||"—"});
+    await save();closeSheet();scDetail(t.id);
+  };
+}
+function formMinutes(appId){
+  let mid=null;
+  sheet(`<div class="sh"><button id="cx">キャンセル</button><b>議事録を貼る</b><span style="min-width:62px"></span></div>
+   <div class="fld">
+     <label>アプリ</label><select id="ap">${DB.apps.map(x=>`<option value="${x.id}" ${x.id===appId?"selected":""}>${esc(x.name)}</option>`).join("")}</select>
+     <div class="two"><div><label>日付</label><input id="dt" value="${today()}"></div>
+     <div><label>出席者</label><input id="wh" placeholder="先方 田中様／当社 森下"></div></div>
+     <label>文字起こしを貼る</label><textarea id="rw" style="min-height:240px" placeholder="ボイスメモの文字起こしを、ここにそのまま貼ります"></textarea>
+   </div>
+   <button class="big pri" id="rd" style="margin-top:20px">読み取る</button><div id="er"></div>`);
+  $("cx").onclick=closeSheet;
+  $("rd").onclick=async()=>{
+    const t=DB.apps.find(x=>x.id===$("ap").value), raw=$("rw").value;
+    if(!t)return;
+    if(!raw.trim()){alert("文字起こしを貼ってください。");return;}
+    /* 原文を先に保存する。読み取りに失敗しても原文は残す。やり直しのときは同じ記録を使う */
+    let m=null;
+    DB.apps.forEach(a=>{const i=(a.minutes||[]).findIndex(x=>x.id===mid);if(i>=0)m=a.minutes.splice(i,1)[0];});
+    m=Object.assign(m||{id:uid("g"),source:"貼付",aiDone:false},{date:$("dt").value.trim()||today(),who:$("wh").value.trim(),raw});
+    (t.minutes=t.minutes||[]).push(m); mid=m.id;
+    await save();
+    runRead(t,m,$("rd"),$("er"));
+  };
+}
+function sheetConfirm(a,m,res){
+  const items=[...res.decided.map(x=>({k:"d",text:x})),...res.open.map(x=>({k:"o",text:x})),...res.todos.map(x=>({k:"t",...x})),
+    ...(res.decider?[{k:"k",text:res.decider.v,conf:res.decider.conf,src:res.decider.src}]:[])];
+  items.forEach(x=>x.on=x.conf!=="低");  /* 確信度が低いものは初めチェックなし。押して採用する（設計書 5-5） */
+  const small=x=>x.k==="t"?`${esc(x.who)}${x.due?"　"+esc(x.due)+" まで":""}`
+    :x.k==="k"&&x.src?`「${esc(x.src)}」`:"";
+  /* 確信度の色（統合設計書 5-5）：高＝緑・中＝黄・低＝赤 */
+  const CONF={"高":"tg-live","中":"tg-make","低":"tg-imp"};
+  const conf=x=>CONF[x.conf]?`<span class="tag ${CONF[x.conf]}">確信度 ${esc(x.conf)}</span>`:"";
+  const part=(k,cap)=>{const l=items.map((x,i)=>[x,i]).filter(([x])=>x.k===k);
+    return sec(cap,k==="k"?"":l.length+"件",l.length?l.map(([x,i])=>`<button class="row" data-pk="${i}"><span class="ck ${x.on?"on":""}">${CHK}</span>
+      <span class="m"><b>${esc(x.text)}</b>${small(x)?`<small>${small(x)}</small>`:""}</span>${conf(x)}</button>`).join("")
+      :nil(k==="k"?"議事録から読み取れませんでした":"ありません"));};
+  sheet(`<div class="sh"><button id="cx">キャンセル</button><b>読み取り結果</b><button class="r" id="ok">これで確定</button></div>
+   <div class="sub">${esc(a.name)}　${esc(m.date)}　外すものは丸を押します。右上の『これで確定』で入ります</div>
+   ${part("d","決まったこと")}${part("o","まだ決まっていないこと")}${part("t","宿題")}${part("k","最後にOKを出す人")}`);
+  $("shIn").querySelectorAll("[data-pk]").forEach(b=>b.onclick=()=>{
+    const x=items[+b.dataset.pk];x.on=!x.on;b.querySelector(".ck").classList.toggle("on",x.on);});
+  /* 「これで確定」を押すまで、既存データには書き込まない */
+  const commit=async()=>{
+    if(m.aiDone)return;
+    a.decided=a.decided||[];a.open=a.open||[];a.todos=a.todos||[];
+    /* 同じ議事録から同じ文面がすでに入っていれば足さない（違う議事録からの同じ文面は残す） */
+    const has=(arr,text)=>arr.some(y=>y.from===m.id&&y.text===text);
+    items.filter(x=>x.on).forEach(x=>{
+      if(x.k!=="k"&&has(x.k==="d"?a.decided:x.k==="o"?a.open:a.todos,x.text))return;
+      if(x.k==="d")a.decided.push({text:x.text,date:m.date,by:m.who,from:m.id});
+      else if(x.k==="k"){  /* 決裁者は1人だけ。古い行を消してから足す */
+        const P="最後にOKを出す人：";
+        a.decided=a.decided.filter(d=>!String(d.text??"").startsWith(P));
+        a.decided.push({text:P+x.text,date:m.date,by:m.who,from:m.id});}
+      else if(x.k==="o")a.open.push({text:x.text,date:m.date,who:m.who,from:m.id});
+      else a.todos.push({id:uid("t"),text:x.text,who:x.who,due:x.due,done:false,from:m.id});
+    });
+    m.aiDone=true;
+    await save();closeSheet();stack=[];scMinutes();
+  };
+  $("cx").onclick=closeSheet;
+  $("ok").onclick=commit;
+}
+function formMoney(a,t,done){
+  sheet(`<div class="sh"><button id="cx">キャンセル</button><b>${t==="in"?"入金を追加":"支出を追加"}</b><button class="r" id="sv">保存</button></div>
+   <div class="fld">
+     <label>項目</label><input id="l" placeholder="${t==="in"?"月額利用料":"Supabase 利用料"}">
+     <label>金額（円）</label><input id="am" type="number" inputmode="numeric" placeholder="36000">
+     <div class="two"><div><label>頻度</label><select id="rc"><option value="1">毎月</option><option value="0">この月だけ</option></select></div>
+     <div><label>対象の月</label><input id="ym" value="${curYM}"></div></div>
+     ${t==="in"?`<label>状態</label><select id="sx"><option value="unbilled">未請求</option><option value="billed">請求済</option><option value="paid">入金済</option></select>`:""}
+   </div>`);
+  $("cx").onclick=closeSheet;
+  $("sv").onclick=async()=>{
+    const l=$("l").value.trim(), am=+$("am").value;
+    if(!l||!am){alert("項目と金額を入れてください。");return;}
+    const rec=$("rc").value==="1";
+    (a.money=a.money||[]).push({id:uid("m"),t,label:l,amount:am,rec,ym:rec?null:$("ym").value.trim(),
+      status:t==="in"?$("sx").value:undefined});
+    await save();closeSheet();done&&done();
+  };
+}
+
+/* ==================== 時計 ==================== */
+function tick(){
+  const d=new Date(), hm=d.toLocaleTimeString("ja-JP",{hour:"numeric",minute:"2-digit"});
+  $("sbT").textContent=hm; $("hT").textContent=hm;
+  $("hD").innerHTML=d.toLocaleDateString("ja-JP",{month:"long",day:"numeric"})+"<br>"+d.toLocaleDateString("ja-JP",{weekday:"long"});
+}
+tick(); setInterval(tick,10000); boot();
+</script>
+</body>
+</html>
