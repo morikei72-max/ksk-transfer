@@ -705,7 +705,7 @@ function scMinute(aid,mid,back){
   if(!m.aiDone)$("rd").onclick=()=>runRead(a,m,$("rd"),$("er"));
 }
 
-/* AIに渡す文章（統合設計書 5-4 のうち decided / open / todos と decider のみ） */
+/* AIに渡す文章（統合設計書 5-4。decided / open / todos / decider と、聞き取りの答え answers） */
 const PROMPT=`あなたは打ち合わせの議事録を読んで、アプリ開発の聞き取り項目を埋める係です。
 下の議事録を読み、JSONだけを返してください。
 前置き、説明、コードの囲み記号は一切書かないでください。
@@ -721,14 +721,41 @@ const PROMPT=`あなたは打ち合わせの議事録を読んで、アプリ開
 - 「来週金曜日」「今月中」「月末」などの言い方は、「打ち合わせの日付」を基準に YYYY-MM-DD の日付に直して due に入れる。「今月中」「月末」はその月の末日にする。日付に直せないときだけ null
 - 最後にOKを出す人が自分のことを「私」と言っている場合は、出席者の欄から名前を当てはめる。当てはめられなければ「先方の代表者」のように立場を書く
 - 同じ話を途中で言い直している場合は、最後に言った内容だけを使う
+- answers は聞き取りの答え。下の問だけを埋める。議事録に書かれていない問は v を null にする
+- 選ぶ問は、必ず「：」のあとの選択肢の言葉そのままを返す。違う言葉は返さない
+- 「いくつでも」の問は、v を選択肢の言葉の配列にする
+
+answers の問：
+q8 今一番困っていること（自由に書く）
+q9 それを今はどうやっているか：紙|Excel|LINE|他のアプリ|何もしていない
+q10 それで困るのは誰か（いくつでも）：社内の人|お客様|取引先
+q11 使う人は何人：〜5人|〜20人|〜100人|それ以上
+q12 いつまでに必要か（自由に書く）
+q13 どこで使うか：LINE|アプリ|両方|社内だけ
+q14 一番近いのはどれか：予約・受付|台帳・一覧|受発注|マッチング|報告・記録|管理・集計
+q15 スマホかパソコンか：スマホ中心|パソコン中心|両方
+q16 今回やらないこと（自由に書く）
+q17 画面はいくつ：3つまで|5つまで|10まで|それ以上
+q20 通知は必要か（自由に書く）
+q22 お金は動くか：動かない|お客様の口座に直接|決済会社を通して|こちらが預かる
+q28 予算の目安（自由に書く）
+q29 補助金：使う|使わない|分からない
+q31 保守：必要|不要|まだ決めていない
 
 返すJSON：
 {
  "decided": ["決まったこと を1行ずつ"],
  "open":    ["まだ決まっていないこと を1行ずつ"],
  "todos":   [{"text":"宿題","who":"当社|先方","due":"2026-09-30 か null"}],
- "decider": {"v":null,"conf":"","src":""}
+ "decider": {"v":null,"conf":"","src":""},
+ "answers": {"q8":{"v":null,"conf":"","src":""},"q9":{"v":null,"conf":"","src":""},"q10":{"v":null,"conf":"","src":""},
+             "q11":{"v":null,"conf":"","src":""},"q12":{"v":null,"conf":"","src":""},"q13":{"v":null,"conf":"","src":""},
+             "q14":{"v":null,"conf":"","src":""},"q15":{"v":null,"conf":"","src":""},"q16":{"v":null,"conf":"","src":""},
+             "q17":{"v":null,"conf":"","src":""},"q20":{"v":null,"conf":"","src":""},"q22":{"v":null,"conf":"","src":""},
+             "q28":{"v":null,"conf":"","src":""},"q29":{"v":null,"conf":"","src":""},"q31":{"v":null,"conf":"","src":""}}
 }`;
+/* 議事録から読み取る聞き取りの問（問の中身と選択肢は ASK を使う） */
+const AI_Q=[8,9,10,11,12,13,14,15,16,17,20,22,28,29,31];
 /* 公開ページの sample.json で読む。失敗は {code} で投げる（自動でやり直さない） */
 async function askAI(m){
   if(!sample) throw {code:"no_sample"};
@@ -740,6 +767,22 @@ async function askAI(m){
 async function readMinutes(m){
   return await askAI(m);
 }
+/* 聞き取りの答えを整える。選択肢にない言葉・空・null は捨てる。conf は 高/中/低 以外なら空 */
+function normAns(src){
+  const out={}, A=src&&typeof src==="object"&&!Array.isArray(src)?src:{};
+  AI_Q.forEach(n=>{
+    const q=ASK[n-1], r=A["q"+n], o=r&&typeof r==="object"&&!Array.isArray(r)?r:{v:r};
+    const S=x=>String(x??"").trim(), bad=x=>!x||x==="null";
+    let v;
+    if(q.k==="many"){ const arr=(Array.isArray(o.v)?o.v:S(o.v).split(/[|、・,，／]/)).map(S).filter(x=>q.o.includes(x));
+      v=q.o.filter(x=>arr.includes(x)); if(!v.length) return; }
+    else if(q.k==="one"){ v=S(o.v); if(!q.o.includes(v)) return; }
+    else { v=S(o.v); if(bad(v)) return; }
+    const c=S(o.conf);
+    out["q"+n]={v,conf:["高","中","低"].includes(c)?c:"",src:bad(S(o.src))?"":S(o.src)};
+  });
+  return out;
+}
 function normAI(j){
   j=j&&typeof j==="object"?j:{};
   const L=v=>(Array.isArray(v)?v:[]).map(x=>String(x??"").trim()).filter(x=>x&&x!=="null");
@@ -747,7 +790,8 @@ function normAI(j){
   return {decided:L(j.decided),open:L(j.open),
     decider:kv&&kv!=="null"?{v:kv,conf:String(k.conf??""),src:String(k.src??"")}:null,
     todos:(Array.isArray(j.todos)?j.todos:[]).filter(t=>t&&String(t.text??"").trim())
-      .map(t=>({text:String(t.text).trim(),who:t.who==="先方"?"先方":"当社",due:t.due&&t.due!=="null"?String(t.due):""}))};
+      .map(t=>({text:String(t.text).trim(),who:t.who==="先方"?"先方":"当社",due:t.due&&t.due!=="null"?String(t.due):""})),
+    answers:normAns(j.answers)};
 }
 async function runRead(a,m,btn,er){
   const lb=btn.textContent;
@@ -767,7 +811,7 @@ async function runRead(a,m,btn,er){
     :code==="rate_limited"?"混み合っています。少し時間をおいてから、もう一度押してください。"
     :"読み取れませんでした。もう一度押してください。",code||"なし"); }
   const res=normAI(got.j);
-  if(!res.decided.length&&!res.open.length&&!res.todos.length&&!res.decider)
+  if(!res.decided.length&&!res.open.length&&!res.todos.length&&!res.decider&&!Object.keys(res.answers).length)
     return fail("議事録から読み取れませんでした。手で入力してください。");
   sheetConfirm(a,m,res);
 }
@@ -1035,20 +1079,25 @@ function formMinutes(appId){
 }
 function sheetConfirm(a,m,res){
   const items=[...res.decided.map(x=>({k:"d",text:x})),...res.open.map(x=>({k:"o",text:x})),...res.todos.map(x=>({k:"t",...x})),
-    ...(res.decider?[{k:"k",text:res.decider.v,conf:res.decider.conf,src:res.decider.src}]:[])];
-  items.forEach(x=>x.on=x.conf!=="低");  /* 確信度が低いものは初めチェックなし。押して採用する（設計書 5-5） */
+    ...(res.decider?[{k:"k",text:res.decider.v,conf:res.decider.conf,src:res.decider.src}]:[]),
+    /* 聞き取りの答え。手で答えている問（conf "手"）は初めチェックなし（上書きしないため） */
+    ...Object.entries(res.answers||{}).map(([key,x])=>({k:"a",n:+key.slice(1),key,v:x.v,conf:x.conf,src:x.src,
+      text:Array.isArray(x.v)?x.v.join("・"):x.v,hand:(((a.intake||{}).answers||{})[key]||{}).conf==="手"}))
+      .sort((x,y)=>x.n-y.n)];
+  items.forEach(x=>x.on=x.conf!=="低"&&!x.hand);  /* 確信度が低いものは初めチェックなし。押して採用する（設計書 5-5） */
   const small=x=>x.k==="t"?`${esc(x.who)}${x.due?"　"+esc(x.due)+" まで":""}`
-    :x.k==="k"&&x.src?`「${esc(x.src)}」`:"";
+    :(x.k==="k"||x.k==="a")&&x.src?`「${esc(x.src)}」`:"";
   /* 確信度の色（統合設計書 5-5）：高＝緑・中＝黄・低＝赤 */
   const CONF={"高":"tg-live","中":"tg-make","低":"tg-imp"};
-  const conf=x=>CONF[x.conf]?`<span class="tag ${CONF[x.conf]}">確信度 ${esc(x.conf)}</span>`:"";
+  const conf=x=>(CONF[x.conf]?`<span class="tag ${CONF[x.conf]}">確信度 ${esc(x.conf)}</span>`:"")+
+    (x.hand?`<span class="tag tg-stop">手で入力済み</span>`:"");
   const part=(k,cap)=>{const l=items.map((x,i)=>[x,i]).filter(([x])=>x.k===k);
     return sec(cap,k==="k"?"":l.length+"件",l.length?l.map(([x,i])=>`<button class="row" data-pk="${i}"><span class="ck ${x.on?"on":""}">${CHK}</span>
-      <span class="m"><b>${esc(x.text)}</b>${small(x)?`<small>${small(x)}</small>`:""}</span>${conf(x)}</button>`).join("")
+      <span class="m">${x.k==="a"?`<small style="margin:0 0 2px">問${x.n}　${esc(ASK[x.n-1].t)}</small>`:""}<b>${esc(x.text)}</b>${small(x)?`<small>${small(x)}</small>`:""}</span>${conf(x)}</button>`).join("")
       :nil(k==="k"?"議事録から読み取れませんでした":"ありません"));};
   sheet(`<div class="sh"><button id="cx">キャンセル</button><b>読み取り結果</b><button class="r" id="ok">これで確定</button></div>
    <div class="sub">${esc(a.name)}　${esc(m.date)}　外すものは丸を押します。右上の『これで確定』で入ります</div>
-   ${part("d","決まったこと")}${part("o","まだ決まっていないこと")}${part("t","宿題")}${part("k","最後にOKを出す人")}`);
+   ${part("d","決まったこと")}${part("o","まだ決まっていないこと")}${part("t","宿題")}${part("k","最後にOKを出す人")}${part("a","聞き取りの答え")}`);
   $("shIn").querySelectorAll("[data-pk]").forEach(b=>b.onclick=()=>{
     const x=items[+b.dataset.pk];x.on=!x.on;b.querySelector(".ck").classList.toggle("on",x.on);});
   /* 「これで確定」を押すまで、既存データには書き込まない */
@@ -1058,6 +1107,7 @@ function sheetConfirm(a,m,res){
     /* 同じ議事録から同じ文面がすでに入っていれば足さない（違う議事録からの同じ文面は残す） */
     const has=(arr,text)=>arr.some(y=>y.from===m.id&&y.text===text);
     items.filter(x=>x.on).forEach(x=>{
+      if(x.k==="a")return;  /* 聞き取りの答えは、まだ入れない（第4回の後半で入れる） */
       if(x.k!=="k"&&has(x.k==="d"?a.decided:x.k==="o"?a.open:a.todos,x.text))return;
       if(x.k==="d")a.decided.push({text:x.text,date:m.date,by:m.who,from:m.id});
       else if(x.k==="k"){  /* 決裁者は1人だけ。古い行を消してから足す */
