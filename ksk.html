@@ -307,7 +307,14 @@ let curYM=new Date().toISOString().slice(0,7);
 const $=i=>document.getElementById(i);
 const esc=s=>String(s??"").replace(/[<>&"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;"}[c]));
 const today=()=>new Date().toLocaleDateString("ja-JP",{year:"numeric",month:"2-digit",day:"2-digit"});
-const uid=p=>p+Date.now().toString(36)+Math.floor(Math.random()*999).toString(36);
+/* id は重ならない乱数で作る。頭の1文字（a/g/t/m）は今までどおり。古い形の id もそのまま読める */
+const uid=p=>{
+  const c=globalThis.crypto;
+  if(c&&typeof c.randomUUID==="function") return p+c.randomUUID().replace(/-/g,"");
+  if(c&&typeof c.getRandomValues==="function")
+    return p+Array.from(c.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,"0")).join("");
+  return p+Date.now().toString(36)+Math.floor(Math.random()*999).toString(36);   /* どちらも無いときだけ */
+};
 const yen=n=>"¥"+Math.round(n||0).toLocaleString("ja-JP");
 const ymL=y=>y.slice(0,4)+"年"+(+y.slice(5,7))+"月";
 const shiftYM=(y,d)=>{const[a,b]=y.split("-").map(Number);const t=new Date(a,b-1+d,1);
@@ -351,7 +358,10 @@ async function boot(){
   lastSaved={}; Object.entries(docsOf()).forEach(([p,b])=>lastSaved[p]=JSON.stringify(b));
   loaded=true;
   if(!DB.apps.length){
-    DB={apps:SEED.map(s=>({id:uid("a"),due:"",url:"",decided:[],open:[],meetings:[],checks:{},money:[],minutes:[],todos:[],...s})),company};
+    const mkSeed=()=>({apps:SEED.map(s=>({id:uid("a"),due:"",url:"",decided:[],open:[],meetings:[],checks:{},money:[],minutes:[],todos:[],...s})),company});
+    const want=()=>DB.apps.reduce((n,a)=>n+1+(a.minutes||[]).length,0)+1;   /* アプリ＋議事録＋company/main */
+    DB=mkSeed();
+    if(Object.keys(docsOf()).length!==want()) DB=mkSeed();   /* 同じパスが重なっていたら1回だけ作り直す */
     await save();
   }
   paintHome();
