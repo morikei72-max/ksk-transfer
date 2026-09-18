@@ -1208,8 +1208,12 @@ const CF_MOVE={"ない":"移すデータはありません","Excelから":"い�
  "他のアプリから":"いまお使いのアプリのデータを移します"};
 const CF_CARE={"なし":"保守のご契約はありません。修正のたびにお見積りします","基本":"基本プラン（月1回までの軽い修正と、不具合の無償対応）です",
  "しっかり":"しっかりプラン（月1回のお打ち合わせと修正、優先対応）です"};
-/* 自由に書いた答えの文末を「です」でそろえる（すでに です・ます で終わっていれば そのまま） */
-const cfDesu=v=>{const t=String(v).trim().replace(/[。．.]+$/,"");return /(です|ます|ません|でした|ました)$/.test(t)?t+"。":t+"です。";};
+/* 文になっている答えの文末（統合設計書 11-1）：
+   すでに です・ます・ください（ません・でした・ました を含む）で終わっていれば何も足さない。句点（。）で終わっていればそのまま。
+   それ以外のときだけ「です。」を足す。名前や物の名前の行（問1〜7）には使わない */
+const cfDesu=v=>{const t=String(v).trim();
+  if(/[。．.]$/.test(t)||/(です|ます|ください|ません|でした|ました)$/.test(t)) return t;
+  return t+"です。";};
 const cfEnd=s=>s.replace(/[。．.]+$/,"")+"。";
 function docConfirm(a,which){
   const c=DB.company||{}, p=a.price, pc=p&&p.type?priceCalc(p):null, Y=n=>(+n||0).toLocaleString("ja-JP");
@@ -1219,8 +1223,9 @@ function docConfirm(a,which){
   const L=(label,s)=>s?`- ${label}：${s}`:null;
   const secs=[];   /* [見出し, 行の配列, 足す文] 行がすべて無い節は出さない */
   secs.push(["このアプリについて",[has(8)?`「${ansText(a,8)}」を解決するためのアプリです。`:null]]);
-  secs.push(["お客様の情報",[L("御社名・ご担当者様",free(1)),L("ご住所",free(2)),L("お電話番号",free(3)),L("メールアドレス",free(4)),
-    L("代表者様",free(5)),L("ご紹介者",free(6)),L("最後にOKを出される方",free(7)||CF_LATER)]]);
+  const nm=n=>has(n)?ansText(a,n):null;   /* 名前や物の名前：答えをそのまま出し「です。」を足さない */
+  secs.push(["お客様の情報",[L("御社名・ご担当者様",nm(1)),L("ご住所",nm(2)),L("お電話番号",nm(3)),L("メールアドレス",nm(4)),
+    L("代表者様",nm(5)),L("ご紹介者",nm(6)),L("最後にOKを出される方",nm(7)||CF_LATER)]]);
   secs.push(["いまお困りのこと",[has(8)?`- いま一番お困りのこと：「${ansText(a,8)}」という点です。`:null,
     L("いまのやり方",pick(9,CF_NOW)),
     L("お困りになる方",has(10)?cfEnd((Array.isArray(v(10))?v(10):[v(10)]).map(x=>CF_WHO[x]||x).join("と")+"です"):null),
@@ -1230,7 +1235,9 @@ function docConfirm(a,which){
     L("使う場所",pick(13,CF_WHERE)),L("使う機器",pick(15,CF_DEVICE)),L("画面数",pick(17,CF_SCREENS)),
     L("写真",pick(18,CF_PHOTO)),L("登録や修正",pick(19,CF_SELF)),L("通知",free(20)),L("データの移行",pick(21,CF_MOVE)),
     L("お支払い",pick(22,CF_MONEY))]]);
-  secs.push(["今回は作らないもの",[L("今回は作らないもの",free(16)||CF_LATER)],"ここに書いたものは、今回のお見積りに含まれていません。"]);
+  /* 今回は作らないもの：箇条書き。「、」「／」「/」改行 で区切って1行ずつ */
+  const notMake=has(16)?ansText(a,16).split(/[、／\/\r\n]+/).map(x=>x.trim().replace(/[。．.]+$/,"")).filter(Boolean):[];
+  secs.push(["今回は作らないもの",notMake.length?notMake.map(x=>`- ${x}`):[`- ${CF_LATER}`],"ここに書いたものは、今回のお見積りに含まれていません。"]);
   secs.push(["金額・納期・保守",[pc?`- 初期費用：${Y(which==="high"?pc.high:pc.low)}円（税別）です。`:null,
     pc?`- 毎月の費用：${Y(pc.monthly)}円（税別）です。`:null,
     p&&CF_CARE[p.care]?`- 保守：${cfEnd(CF_CARE[p.care])}`:null,
