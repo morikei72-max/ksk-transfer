@@ -890,8 +890,9 @@ function askSet(a,n,v){
 }
 function scAsk(id,n=1,warn=false){
   const a=DB.apps.find(x=>x.id===id); if(!a) return scApps();
-  /* 表示した問を a.intake.step に覚える。保存は答えを変えたときの save() に任せる（書き込みを増やさない） */
-  a.intake=a.intake||{answers:{}}; a.intake.step=n;
+  /* 表示した問を a.intake.step に覚える。問番号が変わったときだけ保存する（同じ値なら書かない） */
+  a.intake=a.intake||{answers:{}};
+  if(a.intake.step!==n){ a.intake.step=n; save(); }
   const q=ASK[n-1], cur0=((a.intake&&a.intake.answers)||{})["q"+n], v=cur0?cur0.v:(q.k==="many"?[]:"");
   let body="";
   if(q.k==="text") body=`<div class="fld" style="padding:0"><input id="av" value="${esc(v)}" placeholder="ここに書く"></div>`;
