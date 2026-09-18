@@ -146,12 +146,13 @@ button.row{cursor:pointer}button.row:active{background:var(--c2)}
 /* inputs */
 .fld{padding:0 var(--sp)}
 .fld label{display:block;font-size:11px;font-weight:700;color:var(--t2);letter-spacing:.06em;margin:16px 0 6px}
-.fld input,.fld textarea,.fld select{width:100%;background:var(--c1);border:none;border-radius:11px;padding:12px 14px;font-size:16.5px}
+.fld input,.fld textarea,.fld select{width:100%;background:#3a3a40;color:#fff;border:1px solid rgba(255,255,255,.22);border-radius:11px;padding:12px 14px;font-size:16.5px}
+.fld input::placeholder,.fld textarea::placeholder{color:#a0a0a8}
 .fld textarea{min-height:88px;resize:vertical;line-height:1.6}
-.fld input:focus,.fld textarea:focus,.fld select:focus{outline:1.5px solid var(--blue)}
+.fld input:focus,.fld textarea:focus,.fld select:focus{outline:2px solid var(--blue);background:#43434a;border-color:transparent}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.inline{background:none!important;padding:0!important;font-size:15.5px}
-.inline::placeholder{color:var(--t3)}
+.inline{background:none!important;border:none!important;padding:0!important;font-size:15.5px}
+.inline::placeholder{color:#8e8e96}
 .addbtn{background:none;border:none;color:var(--blue);font-size:14px;font-weight:600;cursor:pointer;flex:none}
 
 /* sheet */
@@ -179,7 +180,7 @@ button.row{cursor:pointer}button.row:active{background:var(--c2)}
   background:radial-gradient(140% 90% at 50% 40%,rgba(0,0,0,0) 45%,rgba(0,0,0,.55) 100%)}
 .tile .wrapi{--d:0s}
 .tile:nth-child(2) .wrapi{--d:-.7s}.tile:nth-child(3) .wrapi{--d:-1.9s}.tile:nth-child(4) .wrapi{--d:-2.6s}
-.tile:nth-child(5) .wrapi{--d:-1.2s}.tile:nth-child(6) .wrapi{--d:-3.1s}.tile:nth-child(7) .wrapi{--d:-.3s}.tile:nth-child(8) .wrapi{--d:-2.2s}.tile:nth-child(9) .wrapi{--d:-1.5s}
+.tile:nth-child(5) .wrapi{--d:-1.2s}.tile:nth-child(6) .wrapi{--d:-3.1s}.tile:nth-child(7) .wrapi{--d:-.3s}.tile:nth-child(8) .wrapi{--d:-2.2s}.tile:nth-child(9) .wrapi{--d:-1.5s}.tile:nth-child(10) .wrapi{--d:-2.9s}
 .tile .ico{position:relative;
   background:linear-gradient(165deg,rgba(255,255,255,.24) 0%,rgba(255,255,255,.07) 45%,rgba(0,0,0,.18) 100%)!important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 -6px 12px rgba(0,0,0,.28),
@@ -255,9 +256,10 @@ const GL={
  live:`<g stroke="currentColor" stroke-width="1.9" fill="none"><circle cx="12" cy="12" r="8.2"/><path d="M3.8 12h16.4M12 3.8c4.2 4.6 4.2 11.8 0 16.4-4.2-4.6-4.2-11.8 0-16.4z"/></g>`,
  word:`<g stroke="currentColor" stroke-width="1.9" fill="none" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9.5h5M8 13h8M8 16.5h5.5"/></g>`,
  help:`<g stroke="currentColor" stroke-width="1.9" fill="none" stroke-linecap="round"><circle cx="12" cy="12" r="8.2"/><path d="M9.6 9.6a2.5 2.5 0 1 1 3.2 2.4c-.6.2-.8.7-.8 1.3"/></g><circle cx="12" cy="16.6" r="1" fill="currentColor"/>`,
- setting:`<g stroke="currentColor" stroke-width="1.9" fill="none" stroke-linejoin="round"><path d="M10.48 5.89L10.82 3.68L13.18 3.68L13.52 5.89L15.25 6.60L17.04 5.28L18.72 6.96L17.40 8.75L18.11 10.48L20.32 10.82L20.32 13.18L18.11 13.52L17.40 15.25L18.72 17.04L17.04 18.72L15.25 17.40L13.52 18.11L13.18 20.32L10.82 20.32L10.48 18.11L8.75 17.40L6.96 18.72L5.28 17.04L6.60 15.25L5.89 13.52L3.68 13.18L3.68 10.82L5.89 10.48L6.60 8.75L5.28 6.96L6.96 5.28L8.75 6.60z"/><circle cx="12" cy="12" r="2.8"/></g>`
+ setting:`<g stroke="currentColor" stroke-width="1.9" fill="none" stroke-linejoin="round"><path d="M10.48 5.89L10.82 3.68L13.18 3.68L13.52 5.89L15.25 6.60L17.04 5.28L18.72 6.96L17.40 8.75L18.11 10.48L20.32 10.82L20.32 13.18L18.11 13.52L17.40 15.25L18.72 17.04L17.04 18.72L15.25 17.40L13.52 18.11L13.18 20.32L10.82 20.32L10.48 18.11L8.75 17.40L6.96 18.72L5.28 17.04L6.60 15.25L5.89 13.52L3.68 13.18L3.68 10.82L5.89 10.48L6.60 8.75L5.28 6.96L6.96 5.28L8.75 6.60z"/><circle cx="12" cy="12" r="2.8"/></g>`,
+ svc:`<g stroke="currentColor" stroke-width="1.9" fill="none"><rect x="3.7" y="11.6" width="11" height="6.4" rx="3.2" transform="rotate(-45 9.2 14.8)"/><rect x="9.3" y="6" width="11" height="6.4" rx="3.2" transform="rotate(-45 14.8 9.2)"/></g>`
 };
-const TINT={gijiroku:"#ffd60a",apps:"#5ac8fa",money:"#30d158",guide:"#ff9f0a",dec:"#40c8e0",live:"#c78bf5",word:"#9aa0a6",help:"#ff7a95",setting:"#8e8e93"};
+const TINT={gijiroku:"#ffd60a",apps:"#5ac8fa",money:"#30d158",guide:"#ff9f0a",dec:"#40c8e0",live:"#c78bf5",word:"#9aa0a6",help:"#ff7a95",setting:"#8e8e93",svc:"#64d2ff"};
 const icon=k=>{const c=TINT[k];return `<span class="ico" style="color:${c};background:linear-gradient(160deg,rgba(255,255,255,.15),rgba(255,255,255,.04));border:.5px solid ${c}59;box-shadow:0 5px 16px rgba(0,0,0,.42),inset 0 0 18px ${c}26;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)"><svg viewBox="0 0 24 24">${GL[k]}</svg></span>`;};
 /* ==================== データ ==================== */
 const STAGES=[
@@ -386,7 +388,8 @@ const TILES=[
  {k:"live",n:"公開アプリ",go:()=>{filter="live";scApps();}},
  {k:"word",n:"用語集",go:scWord},
  {k:"help",n:"使い方",go:scHelp},
- {k:"setting",n:"設定",go:scSetting}];
+ {k:"setting",n:"設定",go:scSetting},
+ {k:"svc",n:"つながるサービス",go:scSvc}];
 
 function paintHome(){
   $("grid").innerHTML="";
@@ -794,6 +797,61 @@ function formCompany(k){
     DB.company[k]=$("cv").value.trim();
     await save();closeSheet();scSetting();
   };
+}
+
+/* ==================== つながるサービス ==================== */
+/* 下調べ用の文章データ。保存場所（db）は使わない。中身は「追補2」2026年9月15日確認の表のまま */
+const SVC_DATE="2026年9月15日";
+const SVC=[
+ {k:"store",n:"保存する場所",sub:"データの保管・ログイン",
+  note:"お客様に渡すものは、最初から有料（月$25）にする。無料のまま渡すと、1週間使われなかった日に止まります。開いた人は「壊れた」と思います。",
+  items:[
+   {n:"Supabase",star:"おすすめ",rows:[["ひとこと","データの保管・ログイン・ファイル置き場が全部入り"],["無料でできること","0円。2つまで。DB 500MB、月5万人まで"],["止まる条件","7日間使わないと止まる。次に開くと10〜30秒待つ"],["有料の金額","月 $25（約3,800円）で止まらなくなる"],["良いところ","日本語の情報が多い。当社の実績が一番多い"],["困るところ","無料のままお客様に渡せない"],["当社の実績","MyCoach／鉄筋検査院／名刺管理"]]},
+   {n:"Neon",rows:[["ひとこと","データの保管だけ。軽い"],["無料でできること","0円。止まらない（5分で休むだけ）"],["止まる条件","止まらない"],["有料の金額","月 $19〜"],["良いところ","無料でも止まらない"],["困るところ","ログイン機能は別に作る必要がある"],["当社の実績","なし"]]},
+   {n:"Googleスプレッドシート",rows:[["ひとこと","表計算をそのままデータ置き場に"],["無料でできること","0円"],["止まる条件","止まらない"],["有料の金額","0円"],["良いところ","誰でも中身を見て直せる"],["困るところ","人数が増えると遅い。同時編集に弱い"],["当社の実績","GOLFEED受発注"]]}]},
+ {k:"host",n:"公開する場所",sub:"作ったものを世界に出す置き場",
+  note:"Netlify は2026年4月に人数課金をやめてクレジット制に変わりました。ネット上の記事は古いものが多く、金額が食い違っています。契約の前に必ず公式ページを見てください。",
+  items:[
+   {n:"Netlify",star:"実績あり",rows:[["ひとこと","作ったものを世界に出す置き場"],["無料でできること","0円（2026年4月から「クレジット制」に変更。月300クレジット）"],["止まる条件","クレジットを使い切ると止まる"],["有料の金額","月 $9（個人）／$20（Pro・人数無制限）"],["良いところ","当社の実績。設定が簡単"],["困るところ","2026年4月に料金が変わったばかり。契約前に必ず公式を見る"],["当社の実績","MyCoach／名刺管理"]]},
+   {n:"Cloudflare Pages",rows:[["ひとこと","同じ。通信量が無料"],["無料でできること","0円。通信量が無制限"],["止まる条件","ほぼ止まらない"],["有料の金額","要確認"],["良いところ","通信量でお金がかからない"],["困るところ","日本語の情報が少ない"],["当社の実績","なし"]]},
+   {n:"Vercel",rows:[["ひとこと","同じ。表示が速い"],["無料でできること","0円"],["止まる条件","使いすぎると止まる"],["有料の金額","要確認"],["良いところ","速い"],["困るところ","料金が上がりやすい"],["当社の実績","なし"]]}]},
+ {k:"pay",n:"お金を受け取る",sub:"カード決済",
+  note:"日本国内のお客様だけなら PAY.JP。海外や外貨があるなら Stripe。デジタルのもの（データ販売・オンライン講座など）は PAY.JP でも 9.0% と高くなるので、必ず両方で計算してください。",
+  items:[
+   {n:"PAY.JP",star:"おすすめ",rows:[["ひとこと","国内向けのカード決済"],["初期費用・月額","0円"],["手数料","物販・サービス 3.5%／デジタルのもの 9.0%（有料プランで2.59%〜）"],["振込手数料","1回 250円（売上から引かれる）"],["入金","月1回か月2回を選べる"],["良いところ","全部日本語。審査も導入も日本語で進む。PayPayも使える"],["困るところ","海外決済は弱い"],["当社の実績","経営ダッシュボードで連携"]]},
+   {n:"Stripe",rows:[["ひとこと","世界向けのカード決済"],["初期費用・月額","0円"],["手数料","国内カード 3.6%／銀行振込 1.5%"],["振込手数料","0円"],["入金","選べる"],["良いところ","海外・多通貨。毎月の課金の仕組みが強い"],["困るところ","サポートが英語中心。3Dセキュア対応が必須"],["当社の実績","なし"]]}]},
+ {k:"line",n:"LINE",sub:"公式アカウントの料金プラン",
+  note:"2026年10月1日に追加メッセージの料金が変わります。無料と5,000円のプランは、上限を超えたら送信そのものができなくなります。予約の確認通知など「届かないと困るもの」をこの2つのプランでやってはいけません。友だち数×配信回数で、必ず先に計算します。",
+  items:[
+   {n:"コミュニケーション",rows:[["月額","0円"],["送れる数","月200通"],["超えたら","それ以上は送れない"]]},
+   {n:"ライト",rows:[["月額","5,000円"],["送れる数","月5,000通"],["超えたら","それ以上は送れない"]]},
+   {n:"スタンダード",rows:[["月額","15,000円"],["送れる数","月30,000通"],["超えたら","追加で送れる唯一のプラン（1通3円〜）"]]}]},
+ {k:"auto",n:"自動処理・AI",sub:"決まった作業を自動で行う",
+  items:[
+   {n:"Googleスプレッドシート＋自動処理",rows:[["無料でできること","0円（Googleアカウントのみ）"],["良いところ","タダ。社内なら十分"],["困るところ","1回の処理に時間の上限がある"],["当社の実績","GOLFEED受発注"]]},
+   {n:"Claude API",rows:[["無料でできること","なし。使った分だけ"],["良いところ","議事録の整形、文章の要約、仕分け"],["困るところ","使うほどお金がかかる。料金は変わるので都度確認"],["当社の実績","AI秘書／GrowthOps"]]}]}];
+const svcFoot=()=>`<div class="hint" style="padding:18px 5px 6px">確認日 ${SVC_DATE}<br>契約の前には必ず公式ページで金額を確かめてください。この一覧は下調べ用です。</div>`;
+const svcNote=c=>c.note?`<div class="warn" style="margin:2px 5px 14px">${WARN}<span>${esc(c.note)}</span></div>`:"";
+function scSvc(){
+  view("つながるサービス","アプリとつなぐ外のサービスを、分類ごとにくらべます",
+   sec("何をするものか",SVC.length+"分類",SVC.map((c,i)=>`<button class="row" data-c="${c.k}"><span class="m"><b>${i+1}　${esc(c.n)}</b>
+     <small>${esc(c.items.map(s=>s.n).join("／"))}</small></span>${CV}</button>`).join(""))+svcFoot());
+  $("sc").querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{push(scSvc);scSvcList(b.dataset.c);});
+}
+function scSvcList(k){
+  const c=SVC.find(x=>x.k===k); if(!c) return scSvc();
+  view(c.n,c.sub,svcNote(c)+
+   sec("","",c.items.map((s,i)=>`<button class="row" data-i="${i}"><span class="m"><b>${esc(s.n)}</b>
+     <small>${esc((s.rows.find(r=>r[0]==="ひとこと")||s.rows[0])[1])}</small></span>${s.star?`<span class="tag tg-live">★${esc(s.star)}</span>`:""}${CV}</button>`).join(""))+svcFoot(),
+   {back:"つながるサービス"});
+  $("sc").querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{push(()=>scSvcList(k));scSvcOne(k,+b.dataset.i);});
+}
+function scSvcOne(k,i){
+  const c=SVC.find(x=>x.k===k), s=c&&c.items[i]; if(!s) return scSvc();
+  view(s.n,c.n,
+   sec("","",s.rows.map(([l,v])=>`<div class="row"><span class="m"><small style="margin:0 0 2px">${esc(l)}</small><b>${esc(v)}</b></span></div>`).join(""))+
+   (s.star?`<div class="hint">★${esc(s.star)}</div>`:"")+svcFoot(),
+   {back:c.n});
 }
 
 /* ==================== シート ==================== */
