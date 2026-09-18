@@ -508,6 +508,9 @@ function scDetail(id){
    sec("見積",priceRange(cur),
      `<button class="row" id="goPrice"><span class="m"><b>${cur.price?"見積を見る・直す":"見積を出す"}</b>
        <small>聞き取りの答えから、金額の幅を自動で出します（社内用）</small></span>${CV}</button>`)+
+   sec("書類","",
+     `<button class="row" id="goBrief"><span class="m"><b>指示書を出す</b><small>社内・Claude Code 向け。全文を出してコピーします</small></span>${CV}</button>
+      <button class="row" id="goConfirm"><span class="m"><b>確認書を出す</b><small>お客様に読んでいただく書面。金額は1つの数字で出します</small></span>${CV}</button>`)+
    sec("この段階で聞くこと","",
      `<div class="row"><span class="m"><ul class="q">${st.ask.map(a=>`<li>${esc(a)}</li>`).join("")}</ul>
        <div class="warn">${WARN}<span>${esc(st.warn)}</span></div></span></div>`)+
@@ -552,6 +555,8 @@ function scDetail(id){
   const re=()=>scDetail(cur.id);
   $("goAsk").onclick=()=>{const id=cur.id,n=askStep(cur)||1;push(()=>scDetail(id));scAsk(id,n);};
   $("goPrice").onclick=()=>{const id=cur.id;push(()=>scDetail(id));scPrice(id);};
+  $("goBrief").onclick=()=>sheetDoc(cur,"brief");
+  $("goConfirm").onclick=()=>sheetDoc(cur,"confirm");
   $("sc").querySelectorAll("[data-st]").forEach(b=>b.onclick=async()=>{cur.stage=+b.dataset.st;await save();re();});
   $("sc").querySelectorAll("[data-ck]").forEach(b=>b.onclick=async()=>{
     cur.checks=cur.checks||{};const k=b.dataset.ck;
@@ -1086,7 +1091,8 @@ function scPrice(id){
      line("<b>小計</b>","<b>"+Y(c.sub)+"</b>")+
      c.coef.map(([l,d])=>line(esc(l),Y(d))).join("")+
      line("<b>お見積り</b>",`<b style="color:var(--t1)">${Y(c.low)} 〜 ${Y(c.high)} 円</b>`)+
-     line("毎月",`実費 ${Y(p.actual)} ＋ 保守 ${Y(c.care)} ＝ ${Y(c.monthly)} 円／月`))+
+     `<div class="row" style="min-height:36px;padding-top:7px;padding-bottom:7px"><span class="m"><b>毎月</b>
+       <small class="num" style="font-size:14px;margin-top:2px">実費 ${Y(p.actual)} ＋ 保守 ${Y(c.care)} ＝ ${Y(c.monthly)} 円／月</small></span></div>`)+
    `<div class="warn" style="margin:0 var(--sp) 24px">${WARN}<span>この金額はまだ出してはいけません。代表のOKをもらってから提示します。</span></div>`,
    {back:a.name});
   /* 変えたらすぐ保存して、同じ位置のまま描き直す */
@@ -1100,6 +1106,149 @@ function scPrice(id){
       if(k[0]==="f")p.feats[+k.slice(1)].amt=v; else p[k]=v; re();};
     inp.onkeydown=e=>{if(e.key==="Enter")inp.blur();};
   });
+}
+
+/* ==================== 書類（第6回：指示書と確認書） ==================== */
+/* 公開ページの枠には allow-downloads が無く、ファイルのダウンロードは止められる（2026-09-18 に試験）。
+   そのため全文をシートに出し、「コピー」で写す。書き出した内容は保存しない（押すたびに、そのときの中身から作る） */
+const UNANS="（未回答）";
+/* 骨組みの規則（統合設計書 第2章の6行をそのまま） */
+const RULES6=["画面は3階層まで。ホーム → 一覧 → 詳細。4階層目を作りたくなったら設計が間違い",
+ "どの画面にも親を1つだけ決める。戻るは必ず親へ。「1つ前」には戻らない",
+ "ホームへはいつでも1タップ（画面下のバー）",
+ "入力は下から出るシートで行う。シートに戻るは置かない。「やめる」と「保存」だけ",
+ "保存してから閉じる。閉じてから保存しない",
+ "消すときは必ず確認を出す"];
+/* 確認書（お客様向け）で使う、問の呼び名 */
+const ASK_LABEL=["御社名・ご担当者様","ご住所","お電話番号","メールアドレス","代表者様","ご紹介者","最後にOKを出される方",
+ "いま一番お困りのこと","いまのやり方","お困りになる方","使う人数","ご希望の時期と理由","使う場所","アプリの種類","使う機器",
+ "今回は作らないもの","画面の数","写真","お客様ご自身による登録・修正","通知","データの移行","アプリの中のお金",
+ "使う人の種類","金額や個人情報を見てよい範囲","消したものの扱い","Excelへの書き出し","使い方のご説明",
+ "ご予算の目安","補助金","抑えたい費用","公開後の保守"];
+const ansText=(a,n)=>{const v=ansV(a,n);if(Array.isArray(v))return v.length?v.join("・"):UNANS;
+  return v!=null&&String(v).trim()!==""?String(v).trim():UNANS;};
+const ymd=(sep="")=>{const d=new Date();return d.getFullYear()+sep+String(d.getMonth()+1).padStart(2,"0")+sep+String(d.getDate()).padStart(2,"0");};
+const fname=s=>String(s||"").replace(/[\\/:*?"<>|\s]+/g,"").slice(0,40)||"お客様";
+const custName=a=>(a.client&&a.client.trim())||(ansText(a,1)!==UNANS?ansText(a,1):"お客様");
+const qLines=(a,ns)=>ns.map(n=>`- 問${n} ${ASK[n-1].t}：${ansText(a,n)}`).join("\n");
+const lLines=(a,ns)=>ns.map(n=>`- ${ASK_LABEL[n-1]}：${ansText(a,n)}`).join("\n");
+const listOr=(arr,f,none="（なし）")=>arr.length?arr.map(f).join("\n"):none;
+function docBrief(a){   /* 指示書（社内・Claude Code 向け） */
+  const c=DB.company||{}, p=a.price, pc=p&&p.type?priceCalc(p):null, Y=n=>(+n||0).toLocaleString("ja-JP");
+  const q8=ansText(a,8);
+  const money=p&&p.type?[
+    `- ${p.type}：${Y(p.base)} 円`,
+    ...(pc.extra?[`- 画面 ${Y(p.screens)}枚（追加${pc.extra}枚）：${Y(pc.scr)} 円`]:[]),
+    ...pc.feats.map(f=>`- ${f.n}：${Y(f.amt)} 円`),
+    `- 小計：${Y(pc.sub)} 円`,
+    ...pc.coef.map(([l,d])=>`- ${l}：${Y(d)} 円`),
+    `- **お見積り：${Y(pc.low)} 〜 ${Y(pc.high)} 円**`,
+    `- 毎月：実費 ${Y(p.actual)} ＋ 保守（${p.care}）${Y(pc.care)} ＝ ${Y(pc.monthly)} 円／月`].join("\n")
+    :"- 見積はまだ出していません";
+  const unans=ASK.map((q,i)=>i+1).filter(n=>ansText(a,n)===UNANS);
+  return `# ${a.name} 指示書
+
+作成日：${ymd("-")}　作成：${c.name||"株式会社ケイエスケー"}
+
+## 1. このアプリは何か
+${q8===UNANS?UNANS:`「${q8}」を解決するためのアプリ`}
+
+## 2. お客様の情報
+${qLines(a,[1,2,3,4,5,6,7])}
+
+## 3. 当社の情報
+${CO.map(([k,n])=>`- ${n}：${(c[k]&&String(c[k]).trim())||"（未入力）"}`).join("\n")}
+
+## 4. 困っていること・今のやり方・使う人と人数
+${qLines(a,[8,9,10,11])}
+
+## 5. いつまでに必要か
+${qLines(a,[12])}
+
+## 6. 作るもの
+${qLines(a,[13,14,15,17,18,19,20,21,22])}
+
+## ⚠ 7. 今回やらないこと（最重要）
+${qLines(a,[16])}
+
+## 8. ルール
+${qLines(a,[23,24,25,26,27])}
+
+## 9. 画面の規則（骨組みの規則・変更不可）
+${RULES6.map((r,i)=>`${i+1}. ${r}`).join("\n")}
+
+## 10. 金額・納期・支払・保守
+${money}
+- 納期：${(a.due&&a.due.trim())||"（未入力）"}
+${qLines(a,[28,29,30,31])}
+
+## 11. 決まったこと
+${listOr(a.decided||[],d=>`- ${d.text}${d.date?`（${d.date}）`:""}`)}
+
+## 12. まだ決まっていないこと
+${listOr(a.open||[],o=>`- ${o.text}${o.date?`（${o.date}）`:""}`)}
+
+## 13. 宿題
+${listOr(a.todos||[],t=>`- ${t.done?"［済］":""}${t.who||"（未定）"}：${t.text}${t.due?`（${t.due} まで）`:"（期限なし）"}`)}
+
+## 14. まだ答えていない問（${unans.length}問）
+${unans.length?unans.map(n=>`- 問${n} ${ASK[n-1].t}`).join("\n"):"（すべて答えています）"}
+`;
+}
+function docConfirm(a,which){   /* 確認書（お客様向け）。which は "low"（下限）か "high"（上限） */
+  const c=DB.company||{}, p=a.price, pc=p&&p.type?priceCalc(p):null, Y=n=>(+n||0).toLocaleString("ja-JP");
+  const q8=ansText(a,8), init=pc?(which==="high"?pc.high:pc.low):null;
+  return `# ${a.name} ご確認書
+
+${ymd("-").replace(/-/g,"/")}　${c.name||"株式会社ケイエスケー"}
+
+お打ち合わせで伺った内容をまとめました。内容にお間違いがないか、ご確認をお願いいたします。
+
+## 1. このアプリについて
+${q8===UNANS?UNANS:`「${q8}」を解決するためのアプリです。`}
+
+## 2. お客様の情報
+${lLines(a,[1,2,3,4,5,6,7])}
+
+## 3. いまお困りのこと
+${lLines(a,[8,9,10,11])}
+
+## 4. ご希望の時期
+${lLines(a,[12])}
+
+## 5. 作るもの
+${lLines(a,[13,14,15,17,18,19,20,21,22])}
+
+## 6. 今回は作らないもの
+${lLines(a,[16])}
+ここに書いたものは、今回のお見積りに含まれていません。
+
+## 7. 金額・納期・保守
+- 初期費用：${pc?`${Y(init)}円（税別）`:"（未定）"}
+- 毎月の費用：${pc?`${Y(pc.monthly)}円（税別）`:"（未定）"}
+- 保守：${p?p.care:"（未定）"}
+- 納期：${(a.due&&a.due.trim())||"（未定）"}
+`;
+}
+/* 全文をシートに出す。コピーは、文を選んで写す方法（execCommand）を先に試し、だめなら navigator.clipboard */
+function sheetDoc(a,kind,which="low"){
+  const isB=kind==="brief", text=isB?docBrief(a):docConfirm(a,which);
+  const name=isB?`${fname(custName(a))}_${fname(a.name)}_指示書_${ymd()}.md`:`${fname(custName(a))}_確認書_${ymd()}.md`;
+  const pc=a.price&&a.price.type?priceCalc(a.price):null, Y=n=>(+n||0).toLocaleString("ja-JP");
+  sheet(`<div class="sh"><span style="min-width:62px"></span><b>${isB?"指示書":"確認書"}</b><button class="r" id="dcCopy">コピー</button></div>
+   <div class="sub" style="padding:0 var(--sp) 8px">${esc(name)}<br>「コピー」で全文を写せます。ファイルにするときは、この名前で保存してください。</div>
+   ${!isB&&pc?`<div class="seg" style="margin-bottom:10px"><button data-wh="low" class="${which==="low"?"on":""}">下限 ${Y(pc.low)}円</button><button data-wh="high" class="${which==="high"?"on":""}">上限 ${Y(pc.high)}円</button></div>`:""}
+   <div class="fld"><textarea id="dcText" readonly style="min-height:52vh;font-size:13.5px;line-height:1.65;font-family:ui-monospace,Menlo,Consolas,monospace">${esc(text)}</textarea></div>
+   <button class="big" id="dcClose" style="margin-top:14px">閉じる</button>`);
+  $("dcClose").onclick=closeSheet;
+  $("shIn").querySelectorAll("[data-wh]").forEach(b=>b.onclick=()=>sheetDoc(a,kind,b.dataset.wh));
+  $("dcCopy").onclick=async()=>{
+    const ta=$("dcText"); let ok=false;
+    try{ ta.focus(); ta.select(); ta.setSelectionRange(0,ta.value.length); ok=document.execCommand("copy"); }catch(e){ ok=false; }
+    if(!ok){ try{ await navigator.clipboard.writeText(ta.value); ok=true; }catch(e){ ok=false; } }
+    if(ok) noticeSheet("コピーしました。チャットやメモに貼り付けられます。");
+    else noticeSheet("コピーできませんでした。文を長押しして「すべてを選択」→「コピー」で写してください。",true);
+  };
 }
 
 /* ==================== シート ==================== */
