@@ -488,8 +488,8 @@ function scDetail(id){
         <span class="m"><b style="${i+1===cur.stage?"color:var(--amber);font-weight:600":""}">${esc(s.n)}</b></span>
         ${i+1===cur.stage?'<span class="v" style="color:var(--amber)">いまここ</span>':""}</button>`).join(""))+
    sec("聞き取り",`${askCount(cur)}/${ASK_ALL}問`,
-     `<button class="row" id="goAsk"><span class="m"><b>${askCount(cur)?"聞き取りの続きを答える":"聞き取りを始める"}</b>
-       <small>1問ずつ答えます。答えなくても次へ進めます</small></span>${CV}</button>`)+
+     `<button class="row" id="goAsk"><span class="m"><b>${askCount(cur)||askStep(cur)?"聞き取りの続きを答える":"聞き取りを始める"}</b>
+       <small>${askStep(cur)?askStep(cur)+"問目から続けます":"1問ずつ答えます。答えなくても次へ進めます"}</small></span>${CV}</button>`)+
    sec("この段階で聞くこと","",
      `<div class="row"><span class="m"><ul class="q">${st.ask.map(a=>`<li>${esc(a)}</li>`).join("")}</ul>
        <div class="warn">${WARN}<span>${esc(st.warn)}</span></div></span></div>`)+
@@ -532,7 +532,7 @@ function scDetail(id){
    {back:"制作アプリ",nav:cur.name,act:"編集",onAct:()=>formApp(cur)});
 
   const re=()=>scDetail(cur.id);
-  $("goAsk").onclick=()=>{const id=cur.id;push(()=>scDetail(id));scAsk(id);};
+  $("goAsk").onclick=()=>{const id=cur.id,n=askStep(cur)||1;push(()=>scDetail(id));scAsk(id,n);};
   $("sc").querySelectorAll("[data-st]").forEach(b=>b.onclick=async()=>{cur.stage=+b.dataset.st;await save();re();});
   $("sc").querySelectorAll("[data-ck]").forEach(b=>b.onclick=async()=>{
     cur.checks=cur.checks||{};const k=b.dataset.ck;
@@ -880,14 +880,18 @@ const ASK=[
 const ASK_HOW={text:"自由に書く",one:"1つ選ぶ",many:"いくつでも選べます"};
 const askHas=x=>!!x&&(Array.isArray(x.v)?x.v.length>0:String(x.v??"").trim()!=="");
 const askCount=a=>Object.values((a.intake&&a.intake.answers)||{}).filter(askHas).length;
+/* a.intake.step＝最後に表示していた問の番号。16以上なら15問目から開く。無ければ0（1問目から） */
+const askStep=a=>{const t=+((a.intake&&a.intake.step)||0);return t>0?Math.min(Math.floor(t),ASK.length):0;};
 function askSet(a,n,v){
-  a.intake=a.intake||{step:1,answers:{}};
+  a.intake=a.intake||{answers:{}};
   const ans=a.intake.answers=a.intake.answers||{};
   const empty=Array.isArray(v)?!v.length:String(v).trim()==="";
   if(empty) delete ans["q"+n]; else ans["q"+n]={v,conf:"手",src:""};
 }
 function scAsk(id,n=1,warn=false){
   const a=DB.apps.find(x=>x.id===id); if(!a) return scApps();
+  /* 表示した問を a.intake.step に覚える。保存は答えを変えたときの save() に任せる（書き込みを増やさない） */
+  a.intake=a.intake||{answers:{}}; a.intake.step=n;
   const q=ASK[n-1], cur0=((a.intake&&a.intake.answers)||{})["q"+n], v=cur0?cur0.v:(q.k==="many"?[]:"");
   let body="";
   if(q.k==="text") body=`<div class="fld" style="padding:0"><input id="av" value="${esc(v)}" placeholder="ここに書く"></div>`;
