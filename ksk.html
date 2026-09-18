@@ -556,12 +556,13 @@ function scDetail(id){
   $("sc").querySelectorAll("[data-fx]").forEach(b=>b.onclick=async()=>{
     const o=cur.open.splice(+b.dataset.fx,1)[0];cur.decided.push({text:o.text,date:today(),by:""});await save();re();});
   $("sc").querySelectorAll("[data-dd]").forEach(b=>b.onclick=async()=>{
-    if(!confirm("この記録を消しますか？"))return;cur.decided.splice(+b.dataset.dd,1);await save();re();});
-  $("sc").querySelectorAll("[data-do]").forEach(b=>b.onclick=async()=>{cur.open.splice(+b.dataset.do,1);await save();re();});
+    if(!await askSheet("この記録を消しますか？"))return;cur.decided.splice(+b.dataset.dd,1);await save();re();});
+  $("sc").querySelectorAll("[data-do]").forEach(b=>b.onclick=async()=>{
+    if(!await askSheet("この記録を消しますか？"))return;cur.open.splice(+b.dataset.do,1);await save();re();});
   $("sc").querySelectorAll("[data-td]").forEach(b=>b.onclick=async()=>{
     const t=cur.todos.find(x=>x.id===b.dataset.td);if(!t)return;t.done=!t.done;await save();re();});
   $("sc").querySelectorAll("[data-tr]").forEach(b=>b.onclick=async()=>{
-    if(!confirm("この宿題を消しますか？"))return;cur.todos=cur.todos.filter(x=>x.id!==b.dataset.tr);await save();re();});
+    if(!await askSheet("この宿題を消しますか？"))return;cur.todos=cur.todos.filter(x=>x.id!==b.dataset.tr);await save();re();});
   $("sc").querySelectorAll("[data-mn]").forEach(b=>b.onclick=()=>{
     const id=cur.id;push(()=>scDetail(id));scMinute(id,b.dataset.mn,cur.name);});
   $("aM").onclick=()=>formMeet(cur.id);
@@ -1003,6 +1004,15 @@ function scAsk(id,n=1,warn=false){
 /* ==================== シート ==================== */
 const sheet=h=>{$("shIn").innerHTML=`<div class="grab"></div>`+h;$("sheet").classList.add("on");};
 const closeSheet=()=>$("sheet").classList.remove("on");
+/* 消す前の確認。公開ページの枠には allow-modals が無く confirm() が黙って false を返すので、下から出るシートで聞く */
+function askSheet(msg,ok="消す"){
+  return new Promise(res=>{
+    sheet(`<div class="sh"><button id="cx">やめる</button><b>確認</b><button class="r" id="sv" style="color:var(--red)">${esc(ok)}</button></div>
+      <div class="sub" style="padding:10px var(--sp) 26px;font-size:16px;color:var(--t1)">${esc(msg)}</div>`);
+    const done=v=>{closeSheet();res(v);};
+    $("cx").onclick=()=>done(false); $("sv").onclick=()=>done(true);
+  });
+}
 $("sheet").onclick=e=>{if(e.target===$("sheet"))closeSheet();};
 
 function formApp(a){
@@ -1078,6 +1088,23 @@ function formMinutes(appId){
     runRead(t,m,$("rd"),$("er"));
   };
 }
+/* 似た内容の見分け方（AIは使わない。統合設計書 5-9）
+   1. 記号・空白と、語尾（です・ます・する など）を取り除く
+   2. 残った文字を1字ずつ比べ、共通する文字の割合（2×共通の数÷両方の字数の合計）が7割以上なら「似ている」 */
+const SIM_END=["ようにします","ようにする","にします","にする","しました","します","する","した","です","ます","こと"];
+function simNorm(s){
+  let t=String(s??"").normalize("NFKC").toLowerCase().replace(/[\s\p{P}\p{S}]/gu,"");
+  for(let again=true;again;){again=false;
+    for(const e of SIM_END) if(t.length>e.length&&t.endsWith(e)){t=t.slice(0,-e.length);again=true;break;}}
+  return t;
+}
+function simRate(p,q){
+  const x=[...simNorm(p)],y=[...simNorm(q)]; if(!x.length||!y.length) return 0;
+  const c={}; x.forEach(ch=>c[ch]=(c[ch]||0)+1);
+  let hit=0; y.forEach(ch=>{if(c[ch]>0){c[ch]--;hit++;}});
+  return 2*hit/(x.length+y.length);
+}
+const isSimilar=(p,q)=>simRate(p,q)>=0.7;
 function sheetConfirm(a,m,res){
   const items=[...res.decided.map(x=>({k:"d",text:x})),...res.open.map(x=>({k:"o",text:x})),...res.todos.map(x=>({k:"t",...x})),
     ...(res.decider?[{k:"k",text:res.decider.v,conf:res.decider.conf,src:res.decider.src}]:[]),
@@ -1085,13 +1112,17 @@ function sheetConfirm(a,m,res){
     ...Object.entries(res.answers||{}).map(([key,x])=>({k:"a",n:+key.slice(1),key,v:x.v,conf:x.conf,src:x.src,
       text:Array.isArray(x.v)?x.v.join("・"):x.v,hand:(((a.intake||{}).answers||{})[key]||{}).conf==="手"}))
       .sort((x,y)=>x.n-y.n)];
-  items.forEach(x=>x.on=x.conf!=="低"&&!x.hand);  /* 確信度が低いものは初めチェックなし。押して採用する（設計書 5-5） */
+  /* 同じアプリの確定済みの行と似ていれば「すでに入っています」。決まったこと・未決は両方と、宿題は宿題と比べる */
+  const pool=k=>k==="t"?(a.todos||[]).map(t=>t.text):[...(a.decided||[]),...(a.open||[])].map(y=>y.text);
+  items.forEach(x=>{if(["d","o","t"].includes(x.k)&&pool(x.k).some(t=>isSimilar(t,x.text)))x.dup=true;});
+  items.forEach(x=>x.on=x.conf!=="低"&&!x.hand&&!x.dup);  /* 確信度が低いものは初めチェックなし。押して採用する（設計書 5-5） */
   const small=x=>x.k==="t"?`${esc(x.who)}${x.due?"　"+esc(x.due)+" まで":""}`
     :(x.k==="k"||x.k==="a")&&x.src?`「${esc(x.src)}」`:"";
   /* 確信度の色（統合設計書 5-5）：高＝緑・中＝黄・低＝赤 */
   const CONF={"高":"tg-live","中":"tg-make","低":"tg-imp"};
   const conf=x=>(CONF[x.conf]?`<span class="tag ${CONF[x.conf]}">確信度 ${esc(x.conf)}</span>`:"")+
-    (x.hand?`<span class="tag tg-stop">手で入力済み</span>`:"");
+    (x.hand?`<span class="tag tg-stop">手で入力済み</span>`:"")+
+    (x.dup?`<span class="tag tg-stop">すでに入っています</span>`:"");
   const part=(k,cap)=>{const l=items.map((x,i)=>[x,i]).filter(([x])=>x.k===k);
     return sec(cap,k==="k"?"":l.length+"件",l.length?l.map(([x,i])=>`<button class="row" data-pk="${i}"><span class="ck ${x.on?"on":""}">${CHK}</span>
       <span class="m">${x.k==="a"?`<small style="margin:0 0 2px">問${x.n}　${esc(ASK[x.n-1].t)}</small>`:""}<b>${esc(x.text)}</b>${small(x)?`<small>${small(x)}</small>`:""}</span>${conf(x)}</button>`).join("")
