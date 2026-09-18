@@ -487,6 +487,9 @@ function scDetail(id){
         <span class="ck ${i+1<cur.stage?"on":""}">${CHK}</span>
         <span class="m"><b style="${i+1===cur.stage?"color:var(--amber);font-weight:600":""}">${esc(s.n)}</b></span>
         ${i+1===cur.stage?'<span class="v" style="color:var(--amber)">いまここ</span>':""}</button>`).join(""))+
+   sec("聞き取り",`${askCount(cur)}/${ASK_ALL}問`,
+     `<button class="row" id="goAsk"><span class="m"><b>${askCount(cur)?"聞き取りの続きを答える":"聞き取りを始める"}</b>
+       <small>1問ずつ答えます。答えなくても次へ進めます</small></span>${CV}</button>`)+
    sec("この段階で聞くこと","",
      `<div class="row"><span class="m"><ul class="q">${st.ask.map(a=>`<li>${esc(a)}</li>`).join("")}</ul>
        <div class="warn">${WARN}<span>${esc(st.warn)}</span></div></span></div>`)+
@@ -529,6 +532,7 @@ function scDetail(id){
    {back:"制作アプリ",nav:cur.name,act:"編集",onAct:()=>formApp(cur)});
 
   const re=()=>scDetail(cur.id);
+  $("goAsk").onclick=()=>{const id=cur.id;push(()=>scDetail(id));scAsk(id);};
   $("sc").querySelectorAll("[data-st]").forEach(b=>b.onclick=async()=>{cur.stage=+b.dataset.st;await save();re();});
   $("sc").querySelectorAll("[data-ck]").forEach(b=>b.onclick=async()=>{
     cur.checks=cur.checks||{};const k=b.dataset.ck;
@@ -852,6 +856,73 @@ function scSvcOne(k,i){
    sec("","",s.rows.map(([l,v])=>`<div class="row"><span class="m"><small style="margin:0 0 2px">${esc(l)}</small><b>${esc(v)}</b></span></div>`).join(""))+
    (s.star?`<div class="hint">★${esc(s.star)}</div>`:"")+svcFoot(),
    {back:c.n});
+}
+
+/* ==================== 聞き取り（31問のうち1〜15問） ==================== */
+/* 2026-09-18 代表確定。答えは a.intake.answers に {v, conf:"手", src:""}。いくつでも選ぶ問は v を配列にする */
+const ASK_ALL=31;
+const ASK=[
+ {t:"御社名と、担当者様のお名前を教えてください",k:"text"},
+ {t:"ご住所を教えてください",k:"text"},
+ {t:"お電話番号を教えてください",k:"text"},
+ {t:"メールアドレスを教えてください",k:"text"},
+ {t:"代表者様のお名前を教えてください",k:"text"},
+ {t:"このお話は、どなたからのご紹介ですか",k:"text"},
+ {t:"最後にOKを出す人は誰ですか",k:"text",must:true},
+ {t:"今、一番困っていることは何ですか",k:"text"},
+ {t:"それを今はどうやっていますか",k:"one",o:["紙","Excel","LINE","他のアプリ","何もしていない"]},
+ {t:"それで困るのは誰ですか",k:"many",o:["社内の人","お客様","取引先"]},
+ {t:"使う人は何人くらいですか",k:"one",o:["〜5人","〜20人","〜100人","それ以上"]},
+ {t:"いつまでに必要ですか。その理由も教えてください",k:"text"},
+ {t:"どこで使いますか",k:"one",o:["LINE","アプリ","両方","社内だけ"]},
+ {t:"一番近いのはどれですか",k:"one",o:["予約・受付","台帳・一覧","受発注","マッチング","報告・記録","管理・集計"]},
+ {t:"使うのはスマホですか、パソコンですか",k:"one",o:["スマホ中心","パソコン中心","両方"]}];
+const ASK_HOW={text:"自由に書く",one:"1つ選ぶ",many:"いくつでも選べます"};
+const askHas=x=>!!x&&(Array.isArray(x.v)?x.v.length>0:String(x.v??"").trim()!=="");
+const askCount=a=>Object.values((a.intake&&a.intake.answers)||{}).filter(askHas).length;
+function askSet(a,n,v){
+  a.intake=a.intake||{step:1,answers:{}};
+  const ans=a.intake.answers=a.intake.answers||{};
+  const empty=Array.isArray(v)?!v.length:String(v).trim()==="";
+  if(empty) delete ans["q"+n]; else ans["q"+n]={v,conf:"手",src:""};
+}
+function scAsk(id,n=1,warn=false){
+  const a=DB.apps.find(x=>x.id===id); if(!a) return scApps();
+  const q=ASK[n-1], cur0=((a.intake&&a.intake.answers)||{})["q"+n], v=cur0?cur0.v:(q.k==="many"?[]:"");
+  let body="";
+  if(q.k==="text") body=`<div class="fld" style="padding:0"><input id="av" value="${esc(v)}" placeholder="ここに書く"></div>`;
+  else body=sec("","",q.o.map(o=>{const on=q.k==="many"?v.includes(o):v===o;
+    return `<button class="row" data-o="${esc(o)}"><span class="ck ${on?"on":""}">${CHK}</span><span class="m"><b>${esc(o)}</b></span></button>`;}).join(""));
+  view("聞き取り",a.name,
+   `<div style="padding:0 var(--sp)">
+     <div style="font-size:13px;color:var(--t2);margin-top:4px">${n}問目 / ${ASK_ALL}問</div>
+     <div class="prog">${Array.from({length:ASK_ALL},(_,i)=>`<i class="${i+1<n?"f":i+1===n?"c":""}"></i>`).join("")}</div>
+     <div style="font-size:20px;font-weight:600;line-height:1.5;margin:22px 0 4px">${esc(q.t)}</div>
+     <div style="font-size:13px;color:var(--t2);margin-bottom:12px">${ASK_HOW[q.k]}</div>
+     ${q.k==="text"?body:""}</div>
+   ${q.k==="text"?"":`<div style="margin-top:4px">${body}</div>`}
+   ${warn?`<div class="warn" style="margin:12px var(--sp) 0">${WARN}<span>最後にOKを出す人が空欄です。ここは空欄のまま先に進めません。</span></div>`:""}
+   <div style="display:flex;gap:10px;margin:22px var(--sp) 0">
+     <button class="big" id="aP" style="margin:0;width:auto;flex:1;${n===1?"opacity:.35":""}" ${n===1?"disabled":""}>戻る</button>
+     <button class="big pri" id="aN" style="margin:0;width:auto;flex:1">${n===ASK.length?"終わる":"次へ"}</button></div>`,
+   {back:a.name});
+  /* 書く欄は、変えたときと、戻る・次へを押したときに保存する */
+  const keep=async()=>{if(q.k!=="text")return;const t=$("av").value.trim();
+    if(t===String(v).trim())return;askSet(a,n,t);await save();};
+  if(q.k==="text"){$("av").onchange=keep;$("av").onkeydown=e=>{if(e.key==="Enter")$("aN").click();};}
+  $("sc").querySelectorAll("[data-o]").forEach(b=>b.onclick=async()=>{
+    const o=b.dataset.o;
+    if(q.k==="many"){const s=v.slice(),i=s.indexOf(o);i<0?s.push(o):s.splice(i,1);askSet(a,n,s.filter(x=>q.o.includes(x)).sort((x,y)=>q.o.indexOf(x)-q.o.indexOf(y)));}
+    else askSet(a,n,o);
+    await save();scAsk(id,n);});
+  $("aP").onclick=async()=>{if(n===1)return;await keep();scAsk(id,n-1);};
+  $("aN").onclick=async()=>{
+    await keep();
+    if(q.must&&!askHas(((a.intake&&a.intake.answers)||{})["q"+n])) return scAsk(id,n,true);
+    if(n<ASK.length) return scAsk(id,n+1);
+    alert("16問目から先は、まだ作っていません。");
+    const p=stack.pop(); p?p():closeWin();
+  };
 }
 
 /* ==================== シート ==================== */
