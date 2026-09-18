@@ -505,6 +505,9 @@ function scDetail(id){
    sec("聞き取り",`${askCount(cur)}/${ASK_ALL}問`,
      `<button class="row" id="goAsk"><span class="m"><b>${askCount(cur)||askStep(cur)?"聞き取りの続きを答える":"聞き取りを始める"}</b>
        <small>${askStep(cur)?askStep(cur)+"問目から続けます":"1問ずつ答えます。答えなくても次へ進めます"}</small></span>${CV}</button>`)+
+   sec("見積",priceRange(cur),
+     `<button class="row" id="goPrice"><span class="m"><b>${cur.price?"見積を見る・直す":"見積を出す"}</b>
+       <small>聞き取りの答えから、金額の幅を自動で出します（社内用）</small></span>${CV}</button>`)+
    sec("この段階で聞くこと","",
      `<div class="row"><span class="m"><ul class="q">${st.ask.map(a=>`<li>${esc(a)}</li>`).join("")}</ul>
        <div class="warn">${WARN}<span>${esc(st.warn)}</span></div></span></div>`)+
@@ -548,6 +551,7 @@ function scDetail(id){
 
   const re=()=>scDetail(cur.id);
   $("goAsk").onclick=()=>{const id=cur.id,n=askStep(cur)||1;push(()=>scDetail(id));scAsk(id,n);};
+  $("goPrice").onclick=()=>{const id=cur.id;push(()=>scDetail(id));scPrice(id);};
   $("sc").querySelectorAll("[data-st]").forEach(b=>b.onclick=async()=>{cur.stage=+b.dataset.st;await save();re();});
   $("sc").querySelectorAll("[data-ck]").forEach(b=>b.onclick=async()=>{
     cur.checks=cur.checks||{};const k=b.dataset.ck;
@@ -1004,6 +1008,98 @@ function scAsk(id,n=1,warn=false){
     if(n<ASK.length) return scAsk(id,n+1);
     const p=stack.pop(); p?p():closeWin();   /* 31問目の「終わる」でアプリの詳細へ戻る */
   };
+}
+
+/* ==================== 見積（第5回） ==================== */
+/* 金額はすべて「KSK開発OS_追補2_見積計算とサービス比較.md ② 見積金額の自動計算」のとおり。ここに無い金額は足さない */
+const PRICE_TYPE=[["台帳・一覧",200000],["管理・集計",250000],["報告・記録",250000],["予約・受付",300000],["受発注",350000],["マッチング",450000]];
+const PRICE_FREE_SCREENS=4, PRICE_SCREEN=25000;   /* 画面4枚まで込み。5枚目から1枚 25,000円 */
+const PRICE_FEAT=[["ログイン（IDとパスワード）",50000],["LINEでログイン",60000],["カード決済",120000],["売上の分配（預かって後で渡す）",180000],
+ ["写真の撮影と保存",60000],["見積書・請求書のPDF",80000],["一覧を表計算ソフトに出す",30000],["お知らせをLINEで送る",60000],
+ ["お知らせをメールで送る",30000],["権限を3種類以上に分ける",60000],["カレンダーと空き枠",80000],["地図",40000],["会社の色に合わせる",30000]];
+const PRICE_RUSH=1.3, PRICE_PRIVACY=1.1, PRICE_SUBSIDY=50000;
+const PRICE_CARE=[["なし",0,"直すたびにお見積り"],["基本",10000,"月1回まで軽い修正。不具合は無償"],["しっかり",30000,"月1回の打ち合わせ＋修正。優先対応"]];
+const PRICE_ACTUAL=3800;   /* 実費の初めの値（追補2「画面に出す形」の例のとおり） */
+const PRICE_SCREEN_HINT={"3つまで":3,"5つまで":5,"10まで":10,"それ以上":12};   /* 問17 の目安（自動では入れない） */
+const ansV=(a,n)=>(((a.intake||{}).answers||{})["q"+n]||{}).v;
+/* 初めて開いたときに作る。聞き取りの答えから入れるのは、型・機能6つ・補助金・保守だけ */
+function priceInit(a){
+  const q13=ansV(a,13),q14=ansV(a,14),q18=ansV(a,18),q20=ansV(a,20),q22=ansV(a,22),q26=ansV(a,26),q29=ansV(a,29),q31=ansV(a,31);
+  const hasQ20=q20!=null&&String(q20).trim()!=="";
+  const auto={"カード決済":q22==="決済会社を通して","売上の分配（預かって後で渡す）":q22==="こちらが預かる",
+    "写真の撮影と保存":q18==="少し使う"||q18==="たくさん使う","一覧を表計算ソフトに出す":q26==="必要",
+    "お知らせをLINEで送る":hasQ20&&(q13==="LINE"||q13==="両方"),"お知らせをメールで送る":hasQ20&&(q13==="アプリ"||q13==="社内だけ")};
+  const t=PRICE_TYPE.find(x=>x[0]===q14);
+  return {type:t?t[0]:"",base:t?t[1]:0,screens:PRICE_FREE_SCREENS,
+    feats:PRICE_FEAT.map(([n,amt])=>({n,amt,on:!!auto[n],auto:!!auto[n]})),
+    rush:false,privacy:false,subsidy:q29==="使う",actual:PRICE_ACTUAL,care:q31==="必要"?"基本":"なし"};
+}
+/* 追補2の計算式：下限 =（型の基本料金 ＋ 画面の追加 ＋ 機能の加算）× 係数、上限 = 下限 × 1.25 */
+function priceCalc(p){
+  const extra=Math.max(0,(+p.screens||0)-PRICE_FREE_SCREENS), scr=extra*PRICE_SCREEN;
+  const feats=p.feats.filter(f=>f.on), sub=(+p.base||0)+scr+feats.reduce((s,f)=>s+(+f.amt||0),0);
+  let v=sub; const coef=[];
+  if(p.rush){const d=Math.round(v*(PRICE_RUSH-1));coef.push(["1か月以内に必要 ×1.3",d]);v+=d;}
+  if(p.privacy){const d=Math.round(v*(PRICE_PRIVACY-1));coef.push(["個人情報あり ×1.1",d]);v+=d;}
+  if(p.subsidy){coef.push(["補助金を使う（書類の手間）",PRICE_SUBSIDY]);v+=PRICE_SUBSIDY;}
+  const low=v, high=Math.floor(low*1.25/1000)*1000;   /* 上限は千円未満を切り捨て（追補2の例 873,125 → 873,000） */
+  const care=(PRICE_CARE.find(c=>c[0]===p.care)||PRICE_CARE[0])[1], monthly=(+p.actual||0)+care;
+  return {extra,scr,feats,sub,coef,low,high,care,monthly};
+}
+const priceRange=a=>{const p=a.price;if(!p)return "まだ出していません";if(!p.type)return "型を選んでいません";
+  const c=priceCalc(p);return `${c.low.toLocaleString("ja-JP")} 〜 ${c.high.toLocaleString("ja-JP")} 円`;};
+const num=v=>{const n=parseInt(String(v).replace(/[^\d]/g,""),10);return isNaN(n)?0:n;};
+function scPrice(id){
+  const a=DB.apps.find(x=>x.id===id); if(!a) return scApps();
+  if(!a.price){a.price=priceInit(a);save();}
+  const p=a.price, c=priceCalc(p), Y=n=>(+n||0).toLocaleString("ja-JP");
+  const box=(k,v,w=110)=>`<input class="inline num" data-in="${k}" value="${esc(v)}" inputmode="numeric" style="width:${w}px;text-align:right;border-bottom:1px solid var(--sep)!important">`;
+  const q14=ansV(a,14), q17=ansV(a,17);
+  const line=(l,v,st="")=>`<div class="row" style="min-height:36px;padding-top:7px;padding-bottom:7px"><span class="m" style="${st}">${l}</span><span class="v num" style="${st}">${v}</span></div>`;
+  view("見積",a.name,
+   sec("型の基本料金",p.type?Y(p.base)+" 円":"",
+     PRICE_TYPE.map(([n,amt])=>`<button class="row" data-ty="${esc(n)}"><span class="ck ${p.type===n?"on":""}">${CHK}</span>
+       <span class="m"><b>${esc(n)}</b><small>${Y(amt)} 円（画面4枚まで込み）</small></span></button>`).join("")+
+     (p.type?`<div class="row"><span class="m"><b>${esc(p.type)} の金額</b><small>手で直せます</small></span>${box("base",p.base)}<span class="v">円</span></div>`:""),
+     q14?`聞き取りの答え（問14）：${esc(q14)}`:"")+
+   sec("画面の枚数",c.scr?Y(c.scr)+" 円":"0 円",
+     `<div class="row"><span class="m"><b>画面の枚数</b><small>5枚目から1枚 25,000円。4枚以下は0円</small></span>${box("screens",p.screens,60)}<span class="v">枚</span></div>`,
+     q17?`目安（問17「${esc(q17)}」）：${PRICE_SCREEN_HINT[q17]??"—"}枚。自動では入れません`:"")+
+   sec("機能の加算",Y(c.feats.reduce((s,f)=>s+(+f.amt||0),0))+" 円",
+     p.feats.map((f,i)=>`<div class="row"><button class="ck ${f.on?"on":""}" data-ft="${i}">${CHK}</button>
+       <span class="m"><b>${esc(f.n)}</b>${f.auto?`<small>聞き取りの答えから入れました</small>`:""}</span>${box("f"+i,f.amt,96)}<span class="v">円</span></div>`).join(""),
+     "丸を押すと入り切りします。金額は手で直せます。")+
+   sec("係数","",
+     [["rush","1か月以内に必要","× 1.3"],["privacy","個人情報を扱う","× 1.1"],["subsidy","補助金を使う（書類の手間）","＋ 50,000円"]]
+     .map(([k,n,v])=>`<button class="row" data-cf="${k}"><span class="ck ${p[k]?"on":""}">${CHK}</span><span class="m"><b>${n}</b>
+       ${k==="subsidy"&&ansV(a,29)?`<small>聞き取りの答え（問29）：${esc(ansV(a,29))}</small>`:""}</span><span class="v">${v}</span></button>`).join(""),
+     "1か月以内と個人情報は、判断が要るので自動では入れません。")+
+   sec("毎月のお金",Y(c.monthly)+" 円／月",
+     `<div class="row"><span class="m"><b>実費</b><small>サーバー・決済・LINE</small></span>${box("actual",p.actual,96)}<span class="v">円</span></div>`+
+     PRICE_CARE.map(([n,amt,d])=>`<button class="row" data-cr="${n}"><span class="ck ${p.care===n?"on":""}">${CHK}</span>
+       <span class="m"><b>保守 ${n}</b><small>${d}</small></span><span class="v num">${Y(amt)} 円</span></button>`).join(""),
+     ansV(a,31)?`聞き取りの答え（問31）：${esc(ansV(a,31))}`:"")+
+   sec("見積（自動計算・社内用）","",
+     (p.type?line(esc(p.type),Y(p.base)):line("型を選んでいません","—"))+
+     (c.extra?line(`画面 ${Y(p.screens)}枚（追加${c.extra}枚）`,Y(c.scr)):"")+
+     c.feats.map(f=>line(esc(f.n),Y(f.amt))).join("")+
+     line("<b>小計</b>","<b>"+Y(c.sub)+"</b>")+
+     c.coef.map(([l,d])=>line(esc(l),Y(d))).join("")+
+     line("<b>お見積り</b>",`<b style="color:var(--t1)">${Y(c.low)} 〜 ${Y(c.high)} 円</b>`)+
+     line("毎月",`実費 ${Y(p.actual)} ＋ 保守 ${Y(c.care)} ＝ ${Y(c.monthly)} 円／月`))+
+   `<div class="warn" style="margin:0 var(--sp) 24px">${WARN}<span>この金額はまだ出してはいけません。代表のOKをもらってから提示します。</span></div>`,
+   {back:a.name});
+  /* 変えたらすぐ保存して、同じ位置のまま描き直す */
+  const re=async()=>{await save();const y=$("sc").scrollTop;scPrice(id);$("sc").scrollTop=y;};
+  $("sc").querySelectorAll("[data-ty]").forEach(b=>b.onclick=()=>{const t=PRICE_TYPE.find(x=>x[0]===b.dataset.ty);p.type=t[0];p.base=t[1];re();});
+  $("sc").querySelectorAll("[data-ft]").forEach(b=>b.onclick=()=>{const f=p.feats[+b.dataset.ft];f.on=!f.on;re();});
+  $("sc").querySelectorAll("[data-cf]").forEach(b=>b.onclick=()=>{p[b.dataset.cf]=!p[b.dataset.cf];re();});
+  $("sc").querySelectorAll("[data-cr]").forEach(b=>b.onclick=()=>{p.care=b.dataset.cr;re();});
+  $("sc").querySelectorAll("[data-in]").forEach(inp=>{
+    inp.onchange=()=>{const k=inp.dataset.in,v=num(inp.value);
+      if(k[0]==="f")p.feats[+k.slice(1)].amt=v; else p[k]=v; re();};
+    inp.onkeydown=e=>{if(e.key==="Enter")inp.blur();};
+  });
 }
 
 /* ==================== シート ==================== */
