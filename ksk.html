@@ -238,6 +238,10 @@ button.row{cursor:pointer}button.row:active{background:var(--c2)}
 </div>
 
 <div class="sheet" id="sheet"><div class="in" id="shIn"></div></div>
+<!-- 確認とお知らせ（askSheet・noticeSheet）。入力中のシートを消さないよう、別の層に重ねて出す -->
+<div class="sheet" id="note" style="z-index:80"><div class="in" id="ntIn"></div></div>
+<!-- 保存できていないときの赤い帯。閉じても残り、次に保存できたら消える。下の画面の操作は妨げない -->
+<div id="saveBand" style="display:none;position:fixed;left:0;right:0;top:0;z-index:90;pointer-events:none;background:var(--red);color:#fff;font-size:14px;font-weight:700;line-height:1.5;text-align:center;padding:calc(env(safe-area-inset-top) + 8px) 16px 8px">保存できていません。通信を確かめて、もう一度操作してください。</div>
 
 <script>
 /* ==================== 素材 ==================== */
@@ -384,8 +388,9 @@ async function saveNow(){
       await db.doc(p).delete();
       delete lastSaved[p];
     }
+    saveBand(false);   /* 保存できたら赤い帯を消す */
   }
-  catch(e){ alert("保存できませんでした。通信を確認してください。"); }
+  catch(e){ saveBand(true); noticeSheet("保存できませんでした。通信を確認してください。",true); }
 }
 
 /* ==================== ホーム ==================== */
@@ -630,7 +635,7 @@ function scMoneyApp(id){
     e.status=e.status==="unbilled"?"billed":e.status==="billed"?"paid":"unbilled";
     await save();re();});
   $("sc").querySelectorAll("[data-rm]").forEach(b=>b.onclick=async()=>{
-    if(!confirm("この項目を消しますか？"))return;
+    if(!await askSheet("この項目を消しますか？"))return;
     a.money=a.money.filter(x=>x.id!==b.dataset.rm);await save();re();});
   $("ai").onclick=()=>formMoney(a,"in",re);
   $("ao").onclick=()=>formMoney(a,"out",re);
@@ -679,7 +684,7 @@ function scMinutes(){
    sec("打ち合わせの履歴",mt.length+"件",
      mt.length?mt.map(m=>`<button class="row" data-g="${m.id}"><span class="m"><b>${esc(m.app)}</b>
        <small>${esc(m.date)}　${esc(m.who||"")}</small></span>${CV}</button>`).join(""):nil("まだありません")));
-  const need=()=>{if(!DB.apps.length){alert("先にアプリを登録してください。");return false;}return true;};
+  const need=()=>{if(!DB.apps.length){noticeSheet("先にアプリを登録してください。");return false;}return true;};
   $("pm").onclick=()=>need()&&formMinutes(DB.apps[0].id);
   $("nm").onclick=()=>need()&&formMeet(DB.apps[0].id);
   $("sc").querySelectorAll("[data-mn]").forEach(b=>b.onclick=()=>{
@@ -1004,15 +1009,33 @@ function scAsk(id,n=1,warn=false){
 /* ==================== シート ==================== */
 const sheet=h=>{$("shIn").innerHTML=`<div class="grab"></div>`+h;$("sheet").classList.add("on");};
 const closeSheet=()=>$("sheet").classList.remove("on");
-/* 消す前の確認。公開ページの枠には allow-modals が無く confirm() が黙って false を返すので、下から出るシートで聞く */
+/* 確認とお知らせ。公開ページの枠には allow-modals が無く、ブラウザの確認の窓は黙って false を返し、お知らせの窓は出ない。
+   そのため confirm と alert は使わず、必ず askSheet か noticeSheet を使う（統合設計書 第2章）。
+   入力中のシートを消さないよう、別の層（#note）に重ねて出す */
+let noteDone=null;
+function noteOpen(h,done){
+  if(noteDone){const d=noteDone;noteDone=null;d(false);}   /* 前のものが開いていたら「やめる」扱いで閉じる */
+  $("ntIn").innerHTML=`<div class="grab"></div>`+h; $("note").classList.add("on"); noteDone=done;
+}
+function noteClose(v){ $("note").classList.remove("on"); if(noteDone){const d=noteDone;noteDone=null;d(v);} }
+$("note").onclick=e=>{if(e.target===$("note"))noteClose(false);};
+/* 消す前の確認。「やめる」と「消す」（消すボタンの文字は変えられる） */
 function askSheet(msg,ok="消す"){
   return new Promise(res=>{
-    sheet(`<div class="sh"><button id="cx">やめる</button><b>確認</b><button class="r" id="sv" style="color:var(--red)">${esc(ok)}</button></div>
-      <div class="sub" style="padding:10px var(--sp) 26px;font-size:16px;color:var(--t1)">${esc(msg)}</div>`);
-    const done=v=>{closeSheet();res(v);};
-    $("cx").onclick=()=>done(false); $("sv").onclick=()=>done(true);
+    noteOpen(`<div class="sh"><button id="nCx">やめる</button><b>確認</b><button class="r" id="nOk" style="color:var(--red)">${esc(ok)}</button></div>
+      <div class="sub" style="padding:10px var(--sp) 26px;font-size:16px;color:var(--t1)">${esc(msg)}</div>`,res);
+    $("nCx").onclick=()=>noteClose(false); $("nOk").onclick=()=>noteClose(true);
   });
 }
+/* お知らせ。ボタンは「閉じる」だけ。warn が true なら赤い注意として出す */
+function noticeSheet(msg,warn=false){
+  return new Promise(res=>{
+    noteOpen(`<div class="sh"><span style="min-width:62px"></span><b style="${warn?"color:#ff8f86":""}">${warn?"注意":"お知らせ"}</b><button class="r" id="nOk">閉じる</button></div>
+      <div class="sub" style="display:flex;gap:8px;padding:10px var(--sp) 26px;font-size:16px;line-height:1.6;color:${warn?"#ff8f86":"var(--t1)"}">${warn?`<span style="flex:none;margin-top:3px">${WARN.replace("<svg ",'<svg width="16" height="16" ')}</span>`:""}<span>${esc(msg)}</span></div>`,()=>res());
+    $("nOk").onclick=()=>noteClose(true);
+  });
+}
+function saveBand(on){ const b=$("saveBand"); if(b) b.style.display=on?"block":"none"; }
 $("sheet").onclick=e=>{if(e.target===$("sheet"))closeSheet();};
 
 function formApp(a){
@@ -1032,14 +1055,14 @@ function formApp(a){
   $("cx").onclick=closeSheet;
   $("sv").onclick=async()=>{
     const v=i=>$(i).value.trim();
-    if(!v("n")){alert("アプリ名を入れてください。");return;}
+    if(!v("n")){noticeSheet("アプリ名を入れてください。");return;}
     const d={name:v("n"),client:v("cl"),owner:v("ow"),status:$("stt").value,stage:+$("stg").value,
              due:v("du"),url:v("ur"),working:v("wk"),next:v("nx2"),important:v("im")};
     if(a)Object.assign(a,d);
     else{a={id:uid("a"),...d,decided:[],open:[],meetings:[],checks:{},money:[],minutes:[],todos:[]};DB.apps.push(a);}
     await save();closeSheet();scDetail(a.id);
   };
-  if(a)$("dl").onclick=async()=>{if(!confirm(a.name+" を削除しますか？"))return;
+  if(a)$("dl").onclick=async()=>{if(!await askSheet(a.name+" を削除しますか？","削除する"))return;
     DB.apps=DB.apps.filter(x=>x.id!==a.id);await save();closeSheet();filter="all";scApps();};
 }
 function formMeet(appId){
@@ -1078,7 +1101,7 @@ function formMinutes(appId){
   $("rd").onclick=async()=>{
     const t=DB.apps.find(x=>x.id===$("ap").value), raw=$("rw").value;
     if(!t)return;
-    if(!raw.trim()){alert("文字起こしを貼ってください。");return;}
+    if(!raw.trim()){noticeSheet("文字起こしを貼ってください。");return;}
     /* 原文を先に保存する。読み取りに失敗しても原文は残す。やり直しのときは同じ記録を使う */
     let m=null;
     DB.apps.forEach(a=>{const i=(a.minutes||[]).findIndex(x=>x.id===mid);if(i>=0)m=a.minutes.splice(i,1)[0];});
@@ -1157,7 +1180,7 @@ function sheetConfirm(a,m,res){
     });
     m.aiDone=true;
     await save();closeSheet();stack=[];scMinutes();
-    if(skipped.length) alert("問"+skipped.join("・問")+"は手で入力済みのため、入れませんでした。");
+    if(skipped.length) noticeSheet("問"+skipped.join("・問")+"は手で入力済みのため、入れませんでした。");
   };
   $("cx").onclick=closeSheet;
   $("ok").onclick=commit;
@@ -1174,7 +1197,7 @@ function formMoney(a,t,done){
   $("cx").onclick=closeSheet;
   $("sv").onclick=async()=>{
     const l=$("l").value.trim(), am=+$("am").value;
-    if(!l||!am){alert("項目と金額を入れてください。");return;}
+    if(!l||!am){noticeSheet("項目と金額を入れてください。");return;}
     const rec=$("rc").value==="1";
     (a.money=a.money||[]).push({id:uid("m"),t,label:l,amount:am,rec,ym:rec?null:$("ym").value.trim(),
       status:t==="in"?$("sx").value:undefined});
