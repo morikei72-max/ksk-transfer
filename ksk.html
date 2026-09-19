@@ -563,6 +563,11 @@ function scDetail(id){
    sec("聞き取り",`${askCount(cur)}/${ASK_ALL}問`,
      `<button class="row" id="goAsk"><span class="m"><b>${askCount(cur)||askStep(cur)?"聞き取りの続きを答える":"聞き取りを始める"}</b>
        <small>${askStep(cur)?askStep(cur)+"問目から続けます":"1問ずつ答えます。答えなくても次へ進めます"}</small></span>${CV}</button>`)+
+   sec("お客様に見せる見た目","",
+     `<button class="row" id="goLook"><span class="m"><b>見た目</b></span>
+       <span class="v" style="${cur.look?"":"color:var(--t3)"}">${cur.look?esc(cur.look.name):"まだ決めていません"}</span>${CV}</button>
+      <button class="row" id="goBase"><span class="m"><b>動く試作をその場で作る</b>
+       <small>選んだ見た目と聞き取りの答えから作ります。押して試せます</small></span>${CV}</button>`)+
    sec("見積",priceRange(cur),
      `<button class="row" id="goPrice"><span class="m"><b>${cur.price?"見積を見る・直す":"見積を出す"}</b>
        <small>聞き取りの答えから、金額の幅を自動で出します（社内用）</small></span>${CV}</button>`)+
@@ -603,9 +608,6 @@ function scDetail(id){
    sec("打ち合わせの履歴",mt.length+"件",
      mt.length?mt.slice().reverse().map(m=>`<div class="row"><span class="m"><b>${esc(m.date)}　${esc(m.who||"")}</b>
        <small style="white-space:pre-wrap">${esc(m.memo)}</small></span></div>`).join(""):nil("まだありません"))+
-   sec("お客様に見せる見た目","",
-     `<button class="row" id="goLook"><span class="m"><b>見た目</b></span>
-       <span class="v" style="${cur.look?"":"color:var(--t3)"}">${cur.look?esc(cur.look.name):"まだ決めていません"}</span>${CV}</button>`)+
    sec("基本情報","",
      `<div class="row"><span class="m"><b>先方</b></span><span class="v">${esc(cur.client||"—")}</span></div>
       <div class="row"><span class="m"><b>当社担当</b></span><span class="v">${esc(cur.owner||"—")}</span></div>
@@ -617,6 +619,7 @@ function scDetail(id){
   $("goAsk").onclick=()=>{const id=cur.id,n=askStep(cur)||1;push(()=>scDetail(id));scAsk(id,n);};
   $("goPrice").onclick=()=>{const id=cur.id;push(()=>scDetail(id));scPrice(id);};
   $("goLook").onclick=()=>{const id=cur.id;push(()=>scDetail(id));scLook(id);};
+  $("goBase").onclick=()=>showBase(cur);
   $("goBrief").onclick=()=>sheetDoc(cur,"brief");
   $("goConfirm").onclick=()=>sheetDoc(cur,"confirm");
   $("sc").querySelectorAll("[data-st]").forEach(b=>b.onclick=async()=>{cur.stage=+b.dataset.st;await save();re();});
@@ -1766,6 +1769,411 @@ function tick(){
   const d=new Date(), hm=d.toLocaleTimeString("ja-JP",{hour:"numeric",minute:"2-digit"});
   $("sbT").textContent=hm; $("hT").textContent=hm;
   $("hD").innerHTML=d.toLocaleDateString("ja-JP",{month:"long",day:"numeric"})+"<br>"+d.toLocaleDateString("ja-JP",{weekday:"long"});
+}
+/* ==================== 土台の試作（第8回） ==================== */
+/* 選んだ見た目（a.look）と聞き取りの答え（問14 の型）から、動く1枚のHTMLを作る。AIは使わない。
+   できた HTML は、この開発OSとは切り離した枠（sandbox="allow-scripts"）の中で動かす。
+   試作の入力はその端末の中だけに残る。保存できない枠では、閉じると消える。 */
+const BASE_I={
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ find:'<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.4-4.4"/>',
+ help:'<circle cx="12" cy="12" r="8.2"/><path d="M9.6 9.6a2.5 2.5 0 1 1 3.2 2.4c-.6.2-.8.7-.8 1.3"/><path d="M12 16.6v.01"/>',
+ box:'<path d="M3 8l9-4 9 4v8l-9 4-9-4z"/><path d="M3 8l9 4 9-4M12 12v8"/>',
+ chat:'<path d="M4 5.5h16V16H9.5L4 20z"/><path d="M8 9h8M8 12.5h5"/>',
+ home:'<path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/>'};
+/* 型ごとの中身。項目 t は text/date/time/number/tel/textarea/select、req は必須、yen は金額として表示。
+   見本の日付 "@0" は今日、"@1" は明日、"@-1" は昨日 */
+const BASE_TYPE={
+ "予約・受付":{noun:"予約",ic:"cal",tl:["予約の一覧","予約を入れる"],listTitle:"予約の一覧",addLabel:"予約を入れる",
+  fields:[{n:"お名前",t:"text",req:1},{n:"日付",t:"date",req:1},{n:"時間",t:"time"},{n:"人数",t:"number"},
+   {n:"メニュー",t:"text"},{n:"電話",t:"tel"},{n:"メモ",t:"textarea"}],
+  row:[["日付","時間"],["お名前","メニュー"]],sort:{by:["日付","時間"],desc:false},upcoming:"日付",recent:"これからの予約",
+  hero:{kind:"today",field:"日付",label:"今日の予約",unit:"件"},
+  seed:[{"お名前":"山田 花子","日付":"@0","時間":"10:00","人数":"2","メニュー":"カット"},
+   {"お名前":"佐藤 一郎","日付":"@0","時間":"14:30","人数":"1","メニュー":"カラー"},
+   {"お名前":"鈴木 美咲","日付":"@1","時間":"11:00","人数":"1","メニュー":"カット＋カラー"}]},
+ "台帳・一覧":{noun:"登録",ic:"user",tl:["一覧","登録する"],listTitle:"一覧",addLabel:"新しく登録する",
+  fields:[{n:"名前",t:"text",req:1},{n:"分類",t:"text"},{n:"電話",t:"tel"},{n:"住所",t:"text"},{n:"メモ",t:"textarea"}],
+  row:[["名前"],["分類","電話"]],sort:{by:["名前"],desc:false},recent:"登録されているもの",
+  hero:{kind:"count",label:"登録している数",unit:"件"},
+  seed:[{"名前":"見本商店","分類":"仕入先","電話":"03-0000-0000"},
+   {"名前":"田中 太郎","分類":"お客様","電話":"090-0000-0000"},
+   {"名前":"株式会社サンプル","分類":"取引先","住所":"〇〇県〇〇市"}]},
+ "受発注":{noun:"注文",ic:"box",tl:["注文の一覧","注文を入れる"],listTitle:"注文の一覧",addLabel:"注文を入れる",
+  fields:[{n:"取引先",t:"text",req:1},{n:"品名",t:"text",req:1},{n:"数量",t:"number"},{n:"納期",t:"date"},
+   {n:"状態",t:"select",o:["受付","手配中","出荷済"]},{n:"メモ",t:"textarea"}],
+  row:[["品名","数量"],["取引先","納期","状態"]],sort:{by:["納期"],desc:false},upcoming:"納期",recent:"納期の近い注文",
+  hero:{kind:"status",field:"状態",value:"受付",label:"まだ手配していない注文",unit:"件"},
+  seed:[{"取引先":"見本商事","品名":"部品A","数量":"100","納期":"@3","状態":"受付"},
+   {"取引先":"サンプル工業","品名":"部品B","数量":"40","納期":"@5","状態":"手配中"},
+   {"取引先":"見本商事","品名":"部品C","数量":"12","納期":"@-2","状態":"出荷済"}]},
+ "マッチング":{noun:"依頼",ic:"chat",tl:["依頼の一覧","依頼を出す"],listTitle:"依頼の一覧",addLabel:"依頼を出す",
+  fields:[{n:"依頼の名前",t:"text",req:1},{n:"依頼する人",t:"text"},{n:"日付",t:"date"},{n:"場所",t:"text"},
+   {n:"金額",t:"number",yen:1},{n:"状態",t:"select",o:["募集中","決定","完了"]},{n:"内容",t:"textarea"}],
+  row:[["依頼の名前"],["日付","場所","状態"]],sort:{by:["日付"],desc:false},upcoming:"日付",recent:"これからの依頼",
+  hero:{kind:"status",field:"状態",value:"募集中",label:"募集中の依頼",unit:"件"},
+  seed:[{"依頼の名前":"レッスン 90分","依頼する人":"山田様","日付":"@2","場所":"練習場","金額":"8000","状態":"募集中"},
+   {"依頼の名前":"庭の手入れ","依頼する人":"佐藤様","日付":"@4","場所":"〇〇市","金額":"15000","状態":"決定"},
+   {"依頼の名前":"引っ越しの手伝い","依頼する人":"鈴木様","日付":"@-3","場所":"〇〇市","金額":"20000","状態":"完了"}]},
+ "報告・記録":{noun:"記録",ic:"note",tl:["記録の一覧","記録する"],listTitle:"記録の一覧",addLabel:"記録する",
+  fields:[{n:"日付",t:"date",req:1},{n:"現場",t:"text",req:1},{n:"担当",t:"text"},{n:"内容",t:"textarea"},
+   {n:"状態",t:"select",o:["未確認","確認済"]}],
+  row:[["現場"],["日付","担当","状態"]],sort:{by:["日付"],desc:true},recent:"新しい記録",
+  hero:{kind:"status",field:"状態",value:"未確認",label:"まだ確認していない記録",unit:"件"},
+  seed:[{"日付":"@0","現場":"見本ビル 3階","担当":"山田","内容":"配筋の確認。問題なし","状態":"未確認"},
+   {"日付":"@-1","現場":"サンプル邸","担当":"田中","内容":"基礎の型枠を確認","状態":"確認済"},
+   {"日付":"@-2","現場":"見本ビル 2階","担当":"山田","内容":"写真を10枚撮影","状態":"確認済"}]},
+ "管理・集計":{noun:"記録",ic:"yen",tl:["記録の一覧","記録する"],listTitle:"記録の一覧",addLabel:"記録する",
+  fields:[{n:"日付",t:"date",req:1},{n:"項目",t:"text",req:1},{n:"金額",t:"number",req:1,yen:1},{n:"分類",t:"text"},{n:"メモ",t:"textarea"}],
+  row:[["項目","金額"],["日付","分類"]],sort:{by:["日付"],desc:true},recent:"新しい記録",
+  hero:{kind:"month_sum",field:"日付",sum:"金額",label:"今月の金額の合計",unit:""},
+  seed:[{"日付":"@0","項目":"売上 A店","金額":"120000","分類":"売上"},
+   {"日付":"@-1","項目":"売上 B店","金額":"86000","分類":"売上"},
+   {"日付":"@-3","項目":"仕入れ","金額":"45000","分類":"経費"}]}};
+const BASE_TYPE_DEF="台帳・一覧";
+/* 見た目10種の、試作の画面での値（第7回の見本と同じ色・角・書体） */
+const BASE_SANS='-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Yu Gothic Medium","Noto Sans JP",sans-serif';
+const BASE_MIN='"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif';
+const BASE_MONO='ui-monospace,Menlo,Consolas,monospace';
+const BASE_LOOK={
+ chic:{v:{base:"#0b0b0e",ink:"#efe6d2",sub:"#a39684",acc:"#d4b064",btnInk:"#15120c",
+   panel:"linear-gradient(158deg,rgba(38,35,28,.94),rgba(14,14,17,.94))",panelB:"1px solid rgba(201,162,74,.42)",pr:"6px",
+   psh:"inset 0 1px 0 rgba(233,203,140,.3),0 12px 26px rgba(0,0,0,.5)",gloss2:"linear-gradient(152deg,rgba(255,231,180,.10),rgba(255,255,255,0) 60%)",
+   tile:"linear-gradient(158deg,#26231c,#0e0e11)",tileB:"1px solid rgba(201,162,74,.45)",tr:"6px",icc:"#e3c684",sw:"1.5",
+   tsh:"inset 0 1px 0 rgba(233,203,140,.4),0 10px 22px rgba(0,0,0,.55)",gloss:"linear-gradient(152deg,rgba(255,231,180,.16),rgba(255,255,255,0) 62%)",
+   line:"rgba(201,162,74,.2)",field:"rgba(255,255,255,.06)",sheet:"#15130f",barBg:"rgba(12,11,10,.88)",font:BASE_SANS},
+  x:".h1,.heroN,.band b{font-family:"+BASE_MIN+";font-weight:400;letter-spacing:.1em}"},
+ styl:{v:{base:"#05070f",ink:"#ffffff",sub:"rgba(255,255,255,.66)",acc:"#6aa8ff",btnInk:"#ffffff",
+   panel:"rgba(255,255,255,.10)",panelB:"1px solid rgba(255,255,255,.22)",pr:"18px",
+   psh:"inset 0 1px 0 rgba(255,255,255,.4),0 10px 24px rgba(0,0,0,.28)",gloss2:"linear-gradient(145deg,rgba(255,255,255,.18),rgba(255,255,255,0) 60%)",
+   tile:"rgba(255,255,255,.10)",tileB:"1px solid rgba(255,255,255,.24)",tr:"16px",icc:"#ffffff",sw:"1.8",
+   tsh:"inset 0 1px 0 rgba(255,255,255,.5),0 10px 24px rgba(0,0,0,.3)",gloss:"linear-gradient(145deg,rgba(255,255,255,.32),rgba(255,255,255,0) 66%)",
+   line:"rgba(255,255,255,.12)",field:"rgba(255,255,255,.08)",sheet:"#141a2c",barBg:"rgba(10,14,28,.72)",font:BASE_SANS},
+  x:".panel,.ic{backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}.btn{background:linear-gradient(135deg,#4f8cff,#7b4fe0)}"},
+ fresh:{v:{base:"#e3f3fd",ink:"#1f3f52",sub:"#5f8298",acc:"#1a8ed4",btnInk:"#ffffff",
+   panel:"rgba(255,255,255,.86)",panelB:"1px solid rgba(255,255,255,.95)",pr:"20px",
+   psh:"0 8px 20px rgba(22,110,180,.14)",gloss2:"linear-gradient(160deg,rgba(255,255,255,.6),rgba(255,255,255,0) 55%)",
+   tile:"linear-gradient(170deg,#ffffff,#eef7ff)",tileB:"1px solid rgba(24,120,190,.10)",tr:"50%",icc:"#1a8ed4",sw:"1.9",
+   tsh:"inset 0 1px 0 #ffffff,0 9px 18px rgba(22,110,180,.22)",gloss:"linear-gradient(160deg,rgba(255,255,255,.95),rgba(255,255,255,.2) 46%,rgba(190,225,250,.18))",
+   line:"rgba(24,120,190,.12)",field:"#ffffff",sheet:"#f4fbff",barBg:"rgba(255,255,255,.8)",font:BASE_SANS}},
+ soft:{v:{base:"#fdf5ea",ink:"#6e5a4c",sub:"#9c8a7b",acc:"#e0894a",btnInk:"#ffffff",
+   panel:"#fffaf4",panelB:"1px solid rgba(200,150,110,.18)",pr:"24px",
+   psh:"0 10px 20px rgba(190,140,100,.18)",gloss2:"linear-gradient(160deg,rgba(255,255,255,.6),rgba(255,255,255,0) 58%)",
+   tile:"#fffaf4",tileB:"1px solid rgba(200,150,110,.18)",tr:"40%",icc:"#e0894a",sw:"1.9",
+   tsh:"inset 0 1px 0 rgba(255,255,255,.9),0 10px 20px rgba(190,140,100,.24)",gloss:"linear-gradient(160deg,rgba(255,255,255,.85),rgba(255,220,190,.16))",
+   line:"rgba(200,150,110,.18)",field:"#ffffff",sheet:"#fffaf4",barBg:"rgba(255,250,244,.9)",font:BASE_SANS}},
+ pop:{v:{base:"#fffdf8",ink:"#242428",sub:"#6f6f78",acc:"#ff5d5d",btnInk:"#ffffff",
+   panel:"#ffffff",panelB:"2px solid #242428",pr:"18px",
+   psh:"0 4px 0 rgba(0,0,0,.16)",gloss2:"none",
+   tile:"#ff5d5d",tileB:"none",tr:"20px",icc:"#ffffff",sw:"2.1",
+   tsh:"inset 0 2px 0 rgba(255,255,255,.45),0 4px 0 rgba(0,0,0,.16),0 9px 16px rgba(0,0,0,.14)",gloss:"linear-gradient(162deg,rgba(255,255,255,.42),rgba(255,255,255,.05) 46%,rgba(0,0,0,.06))",
+   line:"rgba(36,36,40,.12)",field:"#ffffff",sheet:"#ffffff",barBg:"rgba(255,255,255,.92)",font:BASE_SANS},
+  pop:["#ff5d5d","#2fc2e0","#ffb02e","#a76bf0"],
+  x:".h1{letter-spacing:-.01em}.tl span,.row b{font-weight:800}.btn{box-shadow:0 4px 0 rgba(0,0,0,.18)}"},
+ trust:{v:{base:"#f4f6f9",ink:"#16355e",sub:"#5f7189",acc:"#16355e",btnInk:"#ffffff",
+   panel:"#ffffff",panelB:"1px solid #d9e0ea",pr:"4px",psh:"none",gloss2:"none",
+   tile:"#16355e",tileB:"none",tr:"3px",icc:"#ffffff",sw:"1.6",tsh:"none",gloss:"none",
+   line:"#e3e8ef",field:"#ffffff",sheet:"#ffffff",barBg:"rgba(255,255,255,.94)",font:BASE_SANS},
+  layout:"rows",band:true},
+ wa:{v:{base:"#f3ecdd",ink:"#2b2b2f",sub:"#6f6a5e",acc:"#b5402f",btnInk:"#ffffff",
+   panel:"rgba(251,247,238,.95)",panelB:"1px solid rgba(43,43,47,.5)",pr:"0",psh:"none",gloss2:"none",
+   tile:"#fbf7ee",tileB:"1px solid rgba(43,43,47,.55)",tr:"0",icc:"#2b2b2f",sw:"1.4",tsh:"none",gloss:"none",
+   line:"rgba(43,43,47,.2)",field:"#fffdf8",sheet:"#fbf7ee",barBg:"rgba(243,236,221,.94)",font:BASE_MIN},
+  vt:true,veil:"rgba(243,236,221,.42)",x:".ic::after{content:\"\";position:absolute;left:0;right:0;top:0;height:3px;background:#b5402f}.tl span,.heroS,.cap{letter-spacing:.14em}.h1{font-weight:600;letter-spacing:.08em}"},
+ mini:{v:{base:"#ffffff",ink:"#111111",sub:"#8e8e8e",acc:"#111111",btnInk:"#ffffff",
+   panel:"#ffffff",panelB:"1px solid #111111",pr:"0",psh:"none",gloss2:"none",
+   tile:"#ffffff",tileB:"1px solid #111111",tr:"0",icc:"#111111",sw:"1.1",tsh:"none",gloss:"none",
+   line:"#e6e6e6",field:"#ffffff",sheet:"#ffffff",barBg:"rgba(255,255,255,.96)",font:BASE_SANS},
+  x:".h1{font-size:20px;font-weight:600;letter-spacing:.34em}.tl span,.cap,.heroS{letter-spacing:.2em;font-weight:400}.heroN{font-weight:300}"},
+ nat:{v:{base:"#f2eee2",ink:"#4c4638",sub:"#857d68",acc:"#5c7a4a",btnInk:"#ffffff",
+   panel:"#fffdf7",panelB:"1px solid rgba(92,122,74,.26)",pr:"20px",
+   psh:"inset 0 1px 0 #ffffff,0 8px 16px rgba(110,100,70,.14)",gloss2:"linear-gradient(160deg,rgba(255,255,255,.5),rgba(255,255,255,0) 52%)",
+   tile:"#fffdf7",tileB:"1px solid rgba(92,122,74,.26)",tr:"21px",icc:"#5c7a4a",sw:"1.7",
+   tsh:"inset 0 1px 0 rgba(255,255,255,.95),0 8px 16px rgba(110,100,70,.17)",gloss:"linear-gradient(160deg,rgba(255,255,255,.6),rgba(255,255,255,0) 52%)",
+   line:"rgba(92,122,74,.16)",field:"#ffffff",sheet:"#fffdf7",barBg:"rgba(242,238,226,.94)",font:BASE_SANS}},
+ dark:{v:{base:"#000000",ink:"#8ff0cf",sub:"#4fa88c",acc:"#00e5a0",btnInk:"#00140d",
+   panel:"rgba(0,229,160,.06)",panelB:"1px solid rgba(0,229,160,.45)",pr:"14px",
+   psh:"0 0 18px rgba(0,229,160,.14)",gloss2:"linear-gradient(150deg,rgba(150,255,224,.10),rgba(255,255,255,0) 60%)",
+   tile:"radial-gradient(120% 120% at 50% 0%,#0d2a20,#040a08 70%)",tileB:"1px solid rgba(0,229,160,.55)",tr:"14px",icc:"#00e5a0",sw:"2",
+   tsh:"inset 0 1px 0 rgba(140,255,220,.45),inset 0 0 18px rgba(0,229,160,.2),0 0 22px rgba(0,229,160,.3)",gloss:"linear-gradient(150deg,rgba(150,255,224,.2),rgba(255,255,255,0) 70%)",
+   line:"rgba(0,229,160,.18)",field:"rgba(0,229,160,.06)",sheet:"#031009",barBg:"rgba(0,10,6,.86)",font:BASE_SANS},
+  x:".h1,.heroN{font-family:"+BASE_MONO+";text-shadow:0 0 12px rgba(0,229,160,.55)}.ic svg{filter:drop-shadow(0 0 4px rgba(0,229,160,.8))}"}};
+const BASE_LOOK_DEF="styl";
+/* 画面の決まり（骨組みの規則6行）：ホーム→一覧→詳細の3階層、戻るは親へ、ホームは画面下のバーから1タップ、
+   入力は下から出るシート（やめる／保存）、保存してから閉じる、消すときは必ず確認 */
+const BASE_CSS=`*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{min-height:100%}
+body{background:var(--base);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.55}
+button,input,textarea,select{font:inherit;color:inherit}
+.bg{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+.app{position:relative;z-index:1;max-width:480px;margin:0 auto;min-height:100vh;padding:14px 16px 110px}
+.top{min-height:40px;display:flex;align-items:center}
+.back{background:none;border:none;color:var(--acc);font-size:16px;font-weight:700;padding:8px 0;cursor:pointer}
+.h1{font-size:27px;font-weight:800;line-height:1.3;margin:6px 0 2px;word-break:break-word}
+.sub{font-size:13.5px;color:var(--sub);margin-bottom:16px}
+.panel{background:var(--panel);border:var(--panelB);border-radius:var(--pr);box-shadow:var(--psh);position:relative;overflow:hidden}
+.panel::after{content:"";position:absolute;inset:0;pointer-events:none;background:var(--gloss2)}
+.hero{padding:16px 18px;margin-bottom:20px}
+.heroS{font-size:12.5px;color:var(--sub);position:relative;z-index:1}
+.heroN{font-size:34px;font-weight:800;color:var(--acc);line-height:1.2;margin-top:2px;position:relative;z-index:1}
+.heroN small{font-size:15px;margin-left:3px}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px 4px;margin-bottom:24px}
+.tl{background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer}
+.ic{position:relative;width:60px;height:60px;flex:none;border-radius:var(--tr);background:var(--tile);border:var(--tileB);
+  box-shadow:var(--tsh);color:var(--icc);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.ic::before{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--gloss)}
+.ic svg{position:relative;width:28px;height:28px;stroke:currentColor;fill:none;stroke-width:var(--sw);stroke-linecap:round;stroke-linejoin:round}
+.ic.sm{width:40px;height:40px}.ic.sm svg{width:21px;height:21px}
+.tl span{font-size:12px;font-weight:600;color:var(--ink);text-align:center;line-height:1.35}
+.cap{font-size:12.5px;font-weight:700;color:var(--sub);margin:0 4px 8px}
+.row{display:flex;align-items:center;gap:12px;width:100%;padding:13px 16px;background:none;border:none;text-align:left;cursor:pointer;position:relative;z-index:1}
+.row+.row{border-top:1px solid var(--line)}
+.row .m{flex:1;min-width:0}
+.row b{display:block;font-size:16px;font-weight:600;word-break:break-word}
+.row small{display:block;font-size:13px;color:var(--sub);margin-top:2px}
+.cv{width:8px;height:13px;opacity:.45;flex:none}
+.empty{padding:22px 16px;color:var(--sub);font-size:14px;text-align:center;position:relative;z-index:1}
+.search{width:100%;padding:12px 14px;font-size:16px;border-radius:var(--pr);border:var(--panelB);background:var(--field);margin-bottom:14px}
+.btn{display:block;width:100%;padding:15px;border:none;border-radius:var(--pr);background:var(--acc);color:var(--btnInk);font-size:16.5px;font-weight:700;cursor:pointer;margin-top:14px}
+.btn.line{background:var(--sheet);color:var(--acc);border:var(--panelB)}
+.btn.red{background:var(--sheet);color:#d63c31;border:var(--panelB)}
+.kv{padding:12px 16px;position:relative;z-index:1}
+.kv+.kv{border-top:1px solid var(--line)}
+.kv small{display:block;font-size:12.5px;color:var(--sub)}
+.kv div{font-size:16px;white-space:pre-wrap;word-break:break-word}
+.note{font-size:12px;color:var(--sub);text-align:center;margin-top:22px;line-height:1.6}
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;justify-content:center;gap:10px;
+  padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:var(--barBg);border-top:var(--panelB);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.bar button{flex:1;max-width:220px;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 8px;border-radius:var(--pr);
+  border:var(--panelB);background:var(--panel);color:var(--acc);font-size:15px;font-weight:700;cursor:pointer}
+.bar button svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.bar button.pri{background:var(--acc);color:var(--btnInk);border-color:transparent}
+.band{background:#16355e;color:#fff;margin:-14px -16px 18px;padding:18px 16px 16px;border-bottom:3px solid #c8a24a}
+.band b{display:block;font-size:13px;letter-spacing:.08em;opacity:.8;font-weight:600}
+.band .h1{color:#fff;margin:4px 0 0}
+.wa{display:flex;gap:14px;align-items:flex-start}
+.wa .l{flex:1;min-width:0}
+.vt{display:flex;flex-direction:column;align-items:center;font-size:14px;line-height:1.5;letter-spacing:0;color:var(--ink);padding-top:6px}
+.shw{position:fixed;inset:0;z-index:10;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
+.shw.on{display:flex}
+.shin{width:100%;max-width:480px;max-height:92vh;overflow:auto;background:var(--sheet);color:var(--ink);border-radius:18px 18px 0 0;padding:6px 16px 30px}
+.shh{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 0 12px}
+.shh b{font-size:16.5px;text-align:center;flex:1}
+.shh button{background:none;border:none;color:var(--acc);font-size:16px;font-weight:700;cursor:pointer;min-width:64px}
+.shh button:last-child{text-align:right}
+.fl label{display:block;font-size:12.5px;font-weight:700;color:var(--sub);margin:14px 0 6px}
+.fl label i{font-style:normal;color:#d63c31;margin-left:4px}
+.fl input,.fl textarea,.fl select{width:100%;padding:12px 14px;font-size:16px;border-radius:10px;border:var(--panelB);background:var(--field)}
+.fl textarea{min-height:96px;resize:vertical}
+.err{color:#d63c31;font-size:14.5px;font-weight:700}.err:empty{display:none}.err:not(:empty){padding:4px 0 2px}
+.msg{font-size:16px;padding:6px 2px 22px;line-height:1.6}`;
+
+/* 試作の中で動くプログラム。この関数の中身がそのまま試作の HTML に入る。C は設定（JSON） */
+function BASE_RUN(C){
+  var $=function(i){return document.getElementById(i);};
+  var esc=function(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});};
+  var pad=function(n){return String(n).padStart(2,"0");};
+  var dstr=function(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());};
+  var today=function(){return dstr(new Date());};
+  var rel=function(v){var m=/^@(-?\d+)$/.exec(String(v));if(!m)return v;var d=new Date();d.setDate(d.getDate()+(+m[1]));return dstr(d);};
+  var KEY="dodai_"+C.key, canKeep=true, rows=null;
+  try{var s=localStorage.getItem(KEY);rows=s?JSON.parse(s):null;}catch(e){canKeep=false;}
+  if(!Array.isArray(rows))rows=C.seed.map(function(r,i){var o={id:"s"+i};Object.keys(r).forEach(function(k){o[k]=rel(r[k]);});return o;});
+  function keep(){try{localStorage.setItem(KEY,JSON.stringify(rows));}catch(e){canKeep=false;}}
+  function svg(k){return '<svg viewBox="0 0 24 24">'+(C.icons[k]||"")+'</svg>';}
+  var CV='<svg class="cv" viewBox="0 0 8 13" fill="none"><path d="M1.3 1.3L6.7 6.5l-5.4 5.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var fd=function(n){for(var i=0;i<C.fields.length;i++)if(C.fields[i].n===n)return C.fields[i];return null;};
+  function fmt(n,v){
+    if(v==null||v==="")return "";
+    var f=fd(n);
+    if(f&&f.yen&&!isNaN(+v))return "¥"+(+v).toLocaleString("ja-JP");
+    if(f&&f.t==="date"){var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(v);if(m)return (+m[2])+"月"+(+m[3])+"日";}
+    return String(v);
+  }
+  function line(r,fs){return fs.map(function(n){return fmt(n,r[n]);}).filter(Boolean).join("　");}
+  function skey(r){return C.sort.by.map(function(n){return String(r[n]||"");}).join(" ");}
+  function sorted(){return rows.slice().sort(function(a,b){var x=skey(a),y=skey(b);var c=x<y?-1:x>y?1:0;return C.sort.desc?-c:c;});}
+  function rowBtn(r){return '<button class="row" data-id="'+esc(r.id)+'"><span class="m"><b>'+esc(line(r,C.row[0])||C.noun)+'</b>'+
+    '<small>'+esc(line(r,C.row[1]))+'</small></span>'+CV+'</button>';}
+  function bindRows(el){el.querySelectorAll("[data-id]").forEach(function(b){b.onclick=function(){detail(b.getAttribute("data-id"));};});}
+  function note(){return '<div class="note">これは試作の画面です。入力はこの端末の中だけに残ります。'+
+    (canKeep?"":"<br>この画面では保存できないため、閉じると入力は消えます。")+'</div>';}
+  function view(html,back){
+    $("v").innerHTML=(back?'<div class="top"><button class="back" id="bk">‹ '+esc(back[0])+'</button></div>':"")+html+note();
+    if(back)$("bk").onclick=back[1];
+    window.scrollTo(0,0);
+  }
+  function hero(){
+    var h=C.hero,n,t=today();
+    if(h.kind==="today")n=rows.filter(function(r){return r[h.field]===t;}).length;
+    else if(h.kind==="status")n=rows.filter(function(r){return r[h.field]===h.value;}).length;
+    else if(h.kind==="month_sum"){var ym=t.slice(0,7);
+      n=rows.filter(function(r){return String(r[h.field]||"").slice(0,7)===ym;}).reduce(function(s,r){return s+(+r[h.sum]||0);},0);
+      return '<div class="panel hero"><div class="heroS">'+esc(h.label)+'</div><div class="heroN">¥'+n.toLocaleString("ja-JP")+'</div></div>';}
+    else n=rows.length;
+    return '<div class="panel hero"><div class="heroS">'+esc(h.label)+'</div><div class="heroN">'+n+'<small>'+esc(h.unit)+'</small></div></div>';
+  }
+  function home(){
+    var head;
+    if(C.band)head='<div class="band"><b>'+esc(C.cust)+'</b><div class="h1">'+esc(C.app)+'</div></div>';
+    else if(C.vt)head='<div class="wa"><div class="l"><div class="h1">'+esc(C.app)+'</div><div class="sub">'+esc(C.cust)+'</div>'+hero()+'</div>'+
+      '<div class="vt">'+Array.from(String(C.cust)).slice(0,14).map(function(c){return "<span>"+esc(c)+"</span>";}).join("")+'</div></div>';
+    else head='<div class="h1">'+esc(C.app)+'</div><div class="sub">'+esc(C.cust)+'</div>';
+    var tiles=C.layout==="rows"
+      ?'<div class="panel" style="margin-bottom:24px">'+C.tiles.map(function(t,i){return '<button class="row" data-t="'+i+'"><span class="ic sm">'+svg(t.ic)+'</span>'+
+        '<span class="m"><b>'+esc(t.n)+'</b><small>'+esc(t.d)+'</small></span>'+CV+'</button>';}).join("")+'</div>'
+      :'<div class="tiles">'+C.tiles.map(function(t,i){return '<button class="tl" data-t="'+i+'"><span class="ic"'+
+        (C.pop?' style="background:'+C.pop[i%C.pop.length]+'"':'')+'>'+svg(t.ic)+'</span><span>'+esc(t.n)+'</span></button>';}).join("")+'</div>';
+    var t=today(), list=sorted();
+    if(C.upcoming)list=list.filter(function(r){return String(r[C.upcoming]||"")>=t;});
+    list=list.slice(0,3);
+    view(head+(C.vt?"":hero())+tiles+'<div class="cap">'+esc(C.recent)+'</div>'+
+      '<div class="panel" id="rc">'+(list.length?list.map(rowBtn).join(""):'<div class="empty">まだありません</div>')+'</div>');
+    $("v").querySelectorAll("[data-t]").forEach(function(b){b.onclick=function(){go(C.tiles[+b.getAttribute("data-t")].go);};});
+    bindRows($("rc"));
+  }
+  function go(k){if(k==="list")list("");else if(k==="new")form(null);else if(k==="find")list("",true);else help();}
+  var q="";
+  function list(q0,focus){
+    q=q0||"";
+    view('<div class="h1">'+esc(C.listTitle)+'</div><div class="sub">'+rows.length+'件</div>'+
+      '<input class="search" id="q" placeholder="さがす（名前や言葉で）" value="'+esc(q)+'">'+
+      '<div class="panel" id="ls"></div><button class="btn" id="ad">'+esc(C.addLabel)+'</button>',["ホーム",home]);
+    var paint=function(){
+      var r=sorted().filter(function(x){if(!q)return true;return C.fields.some(function(f){return String(x[f.n]||"").indexOf(q)>=0;});});
+      $("ls").innerHTML=r.length?r.map(rowBtn).join(""):'<div class="empty">'+(q?"見つかりません":"まだありません")+'</div>';
+      bindRows($("ls"));
+    };
+    paint();
+    $("q").oninput=function(){q=$("q").value.trim();paint();};
+    $("ad").onclick=function(){form(null);};
+    if(focus)$("q").focus();
+  }
+  function detail(id){
+    var r=rows.filter(function(x){return x.id===id;})[0];if(!r)return list(q);
+    view('<div class="h1">'+esc(line(r,C.row[0])||C.noun)+'</div><div class="sub">'+esc(line(r,C.row[1]))+'</div>'+
+      '<div class="panel">'+C.fields.map(function(f){var v=fmt(f.n,r[f.n]);
+        return '<div class="kv"><small>'+esc(f.n)+'</small><div>'+(v?esc(v):'<span style="color:var(--sub)">—</span>')+'</div></div>';}).join("")+'</div>'+
+      '<button class="btn" id="ed">直す</button><button class="btn red" id="rm">この'+esc(C.noun)+'を消す</button>',[C.listTitle,function(){list(q);}]);
+    $("ed").onclick=function(){form(id);};
+    $("rm").onclick=function(){ask("この"+C.noun+"を消しますか？","消す",function(){rows=rows.filter(function(x){return x.id!==id;});keep();list(q);});};
+  }
+  function sheet(h){$("shin").innerHTML=h;$("sh").classList.add("on");}
+  function closeSheet(){$("sh").classList.remove("on");}
+  $("sh").onclick=function(e){if(e.target===$("sh"))closeSheet();};
+  function ask(msg,ok,fn){
+    sheet('<div class="shh"><button id="ax">やめる</button><b>確認</b><button id="ao" style="color:#d63c31">'+esc(ok)+'</button></div><div class="msg">'+esc(msg)+'</div>');
+    $("ax").onclick=closeSheet;$("ao").onclick=function(){closeSheet();fn();};
+  }
+  function form(id){
+    var r=id?rows.filter(function(x){return x.id===id;})[0]:null;
+    sheet('<div class="shh"><button id="fx">やめる</button><b>'+(r?"直す":esc(C.addLabel))+'</b><button id="fs">保存</button></div><div class="err" id="fe"></div><div class="fl">'+
+      C.fields.map(function(f,i){
+        var v=r?r[f.n]:(f.t==="date"?today():"");v=v==null?"":String(v);
+        var lab='<label for="f'+i+'">'+esc(f.n)+(f.req?'<i>必須</i>':'')+'</label>';
+        if(f.t==="textarea")return lab+'<textarea id="f'+i+'">'+esc(v)+'</textarea>';
+        if(f.t==="select")return lab+'<select id="f'+i+'">'+f.o.map(function(o){return '<option'+(o===v?' selected':'')+'>'+esc(o)+'</option>';}).join("")+'</select>';
+        var ty=f.t==="number"?"text":f.t;
+        return lab+'<input id="f'+i+'" type="'+ty+'"'+(f.t==="number"?' inputmode="numeric"':'')+' value="'+esc(v)+'">';
+      }).join("")+'</div>');
+    $("fx").onclick=closeSheet;
+    $("fs").onclick=function(){
+      var o={},miss=[];
+      C.fields.forEach(function(f,i){var v=$("f"+i).value.trim();if(f.t==="number")v=v.replace(/[^\d.\-]/g,"");o[f.n]=v;if(f.req&&!v)miss.push(f.n);});
+      if(miss.length){$("fe").textContent=miss.join("・")+" を入れてください";$("shin").scrollTop=0;return;}
+      if(r)Object.keys(o).forEach(function(k){r[k]=o[k];});
+      else{o.id="r"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);rows.push(o);r=o;}
+      keep();closeSheet();detail(r.id);   /* 保存してから閉じる */
+    };
+  }
+  function help(){
+    view('<div class="h1">使い方</div><div class="sub">'+esc(C.app)+'</div><div class="panel">'+
+      [["見る","ホームの「"+C.tiles[0].n+"」から、登録したものを見られます"],["入れる","「"+C.addLabel+"」から入れます。必須の欄だけ入れれば保存できます"],
+       ["直す・消す","一覧で押すと中身が出ます。そこから直したり消したりできます"],["ホームへ","画面の下の「ホーム」でいつでも戻れます"]]
+      .map(function(x){return '<div class="kv"><small>'+esc(x[0])+'</small><div>'+esc(x[1])+'</div></div>';}).join("")+'</div>',["ホーム",home]);
+  }
+  $("bar").innerHTML='<button id="bh">'+svg("home")+'ホーム</button><button class="pri" id="bp">'+svg("plus")+esc(C.addLabel)+'</button>';
+  $("bh").onclick=function(){closeSheet();home();};
+  $("bp").onclick=function(){form(null);};
+  home();
+  try{parent.postMessage({dodai:"ready"},"*");}catch(e){}
+}
+
+/* 試作の HTML を作る。見た目が決まっていなければスタイリッシュ、型（問14）が無ければ台帳・一覧で作る */
+function baseParts(a){
+  const q14=ansV(a,14), tName=BASE_TYPE[q14]?q14:BASE_TYPE_DEF, t=BASE_TYPE[tName];
+  const lookId=a.look&&BASE_LOOK[a.look.id]?a.look.id:BASE_LOOK_DEF, L=BASE_LOOK[lookId];
+  const lookName=(LOOK.find(o=>o.id===lookId)||{}).name||lookId;
+  return {t,tName,lookId,L,lookName,typeGuess:!BASE_TYPE[q14],lookGuess:!(a.look&&BASE_LOOK[a.look.id])};
+}
+function baseHTML(a){
+  const {t,tName,lookId,L,lookName}=baseParts(a);
+  const cust=custName(a);
+  const need=["home","plus","find","help",t.ic], icons={};
+  need.forEach(k=>{icons[k]=BASE_I[k]||LK_I[k]||"";});
+  const cfg={key:a.id,app:a.name,cust,noun:t.noun,listTitle:t.listTitle,addLabel:t.addLabel,fields:t.fields,row:t.row,sort:t.sort,
+    upcoming:t.upcoming||"",recent:t.recent,hero:t.hero,seed:t.seed,icons,
+    layout:L.layout||"grid",band:!!L.band,vt:!!L.vt,pop:L.pop||null,
+    tiles:[{ic:t.ic,n:t.tl[0],d:"登録されている"+t.noun+"を見る",go:"list"},{ic:"plus",n:t.tl[1],d:"新しい"+t.noun+"を入れる",go:"new"},
+      {ic:"find",n:"さがす",d:"名前や言葉でさがす",go:"find"},{ic:"help",n:"使い方",d:"この画面の使い方",go:"help"}]};
+  const vars=Object.entries(L.v).map(([k,v])=>"--"+k+":"+v).join(";");
+  /* 指示書を先頭の注釈に入れる。注釈が途中で切れないよう「--」を置き換える */
+  const brief=docBrief(a).replace(/-{2,}/g,m=>"‐".repeat(m.length));
+  const LT="\x3C";   /* 開発OS自身の script が途中で切れないよう、「<」で始まる一部の文字は分けて書く */
+  return LT+"!DOCTYPE html>\n"+LT+'html lang="ja">\n'+LT+"head>\n"+LT+'meta charset="UTF-8">\n'+
+    LT+'meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'+
+    LT+"title>"+esc(a.name)+LT+"/title>\n"+
+    LT+"!"+"--\n土台の試作（KSK開発OS で自動作成　"+ymd("-")+"）\n見た目："+lookName+"　型："+tName+"\n\n"+brief+"\n"+"--"+">\n"+
+    LT+"style>:root{"+vars+"}\n"+BASE_CSS+"\n"+(L.x||"")+LT+"/style>\n"+LT+"/head>\n"+LT+"body>\n"+
+    LT+'svg class="bg" viewBox="0 0 140 260" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'+LK_BG[lookId]+LT+"/svg>\n"+
+    (L.veil?LT+'div class="bg" style="background:'+L.veil+'">'+LT+"/div>\n":"")+
+    LT+'div class="app" id="v">'+LT+"/div>\n"+LT+'div class="bar" id="bar">'+LT+"/div>\n"+
+    LT+'div class="shw" id="sh">'+LT+'div class="shin" id="shin">'+LT+"/div>"+LT+"/div>\n"+
+    LT+"scr"+"ipt>\n("+BASE_RUN.toString()+")("+JSON.stringify(cfg).replace(/</g,"\\u003c")+");\n"+LT+"/scr"+"ipt>\n"+
+    LT+"/body>\n"+LT+"/html>\n";
+}
+
+/* 試作を全画面で見せる（開発OSの上に重ねる。重なりの順は シート70・確認80 より下の 65）。
+   枠は sandbox="allow-scripts" だけにする。allow-same-origin は付けない（付けると、試作から開発OSの保存場所に触れられる）。
+   試作は押すたびにその場で作る。開発OSのデータには何も保存しない */
+function showBase(a){
+  const {tName,lookName,typeGuess,lookGuess}=baseParts(a), html=baseHTML(a);
+  const name=`${fname(custName(a))}_${fname(a.name)}_試作_${ymd()}.html`;
+  const old=$("baseOv"); if(old) old.remove();
+  const ov=document.createElement("div"); ov.id="baseOv";
+  ov.style.cssText="position:fixed;inset:0;z-index:65;background:#000;display:flex;flex-direction:column";
+  const guess=(lookGuess?"見た目がまだ決まっていないので、スタイリッシュで作りました。":"")+
+              (typeGuess?"聞き取りの問14（一番近い型）がまだなので、台帳・一覧で作りました。":"");
+  ov.innerHTML=`<div class="sh" style="background:#101012;padding-top:calc(env(safe-area-inset-top) + 10px)"><button id="bxC">閉じる</button><b>動く試作</b><button class="r" id="bxP">コピー</button></div>
+    <div style="background:#101012;padding:0 var(--sp) 10px;font-size:12.5px;line-height:1.55;color:var(--t2);border-bottom:.5px solid var(--sep)">見た目：${esc(lookName)}　型：${esc(tName)}${guess?`<br><span style="color:var(--amber)">${esc(guess)}</span>`:""}</div>
+    <div style="flex:1;position:relative;background:#000">
+      <iframe id="bxF" sandbox="allow-scripts" title="動く試作" style="position:absolute;inset:0;width:100%;height:100%;border:0"></iframe>
+      <div id="bxN" style="display:none;position:absolute;inset:0;padding:48px 24px;text-align:center;font-size:15px;line-height:1.7;color:var(--t2);background:#000">この画面では試作を表示できませんでした。<br>右上の「コピー」で全文を写して、Claude Code に渡してください。</div>
+    </div>`;
+  document.body.appendChild(ov);
+  const f=$("bxF"); let ready=false;
+  const on=e=>{if(e.source===f.contentWindow&&e.data&&e.data.dodai==="ready")ready=true;};
+  addEventListener("message",on);
+  const timer=setTimeout(()=>{if(!ready&&$("bxN"))$("bxN").style.display="block";},4000);   /* 4秒たっても動かなければ案内を出す */
+  f.srcdoc=html;
+  $("bxC").onclick=()=>{clearTimeout(timer);removeEventListener("message",on);ov.remove();};
+  $("bxP").onclick=()=>sheetText("試作のHTML",name,html,"Claude Code に貼ると、この試作の続きを作れます。先頭に指示書も入っています。");
+}
+/* 長い文を全文出して写す（指示書・確認書の sheetDoc と同じ写し方）。書き出した内容は保存しない */
+function sheetText(title,name,text,hint){
+  sheet(`<div class="sh"><span style="min-width:62px"></span><b>${esc(title)}</b><button class="r" id="txCopy">コピー</button></div>
+   <div class="sub" style="padding:0 var(--sp) 8px">${esc(name)}<br>${esc(hint)}</div>
+   <div class="fld"><textarea id="txText" readonly style="min-height:52vh;font-size:12.5px;line-height:1.55;font-family:ui-monospace,Menlo,Consolas,monospace">${esc(text)}</textarea></div>
+   <button class="big" id="txClose" style="margin-top:14px">閉じる</button>`);
+  $("txClose").onclick=closeSheet;
+  $("txCopy").onclick=async()=>{
+    const ta=$("txText"); let ok=false;
+    try{ ta.focus(); ta.select(); ta.setSelectionRange(0,ta.value.length); ok=document.execCommand("copy"); }catch(e){ ok=false; }
+    if(!ok){ try{ await navigator.clipboard.writeText(ta.value); ok=true; }catch(e){ ok=false; } }
+    if(ok) noticeSheet("コピーしました。Claude Code に貼り付けられます。");
+    else noticeSheet("コピーできませんでした。文を長押しして「すべてを選択」→「コピー」で写してください。",true);
+  };
 }
 tick(); setInterval(tick,10000); boot();
 </script>
