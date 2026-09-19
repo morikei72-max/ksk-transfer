@@ -1555,7 +1555,7 @@ function scLook(id){
       $("sc").querySelectorAll("[data-lk]").forEach(x=>x.classList.toggle("on",x.dataset.lk===cur));   /* やめたら元に戻す */
       return;
     }
-    a.look={id:o.id,name:o.name,date:ymd("-")};
+    { const pv=a.look||{}; a.look={id:o.id,name:o.name,date:ymd("-")}; if(pv.home!==undefined)a.look.home=pv.home; if(pv.hue!==undefined)a.look.hue=pv.hue; }   /* 試作の画面で決めたホームの形と色合いは残す（第8回の2） */
     await save();
     if($("saveBand").style.display==="block") return;   /* 保存に失敗したときは、赤い帯と赤い注意が出ている */
     const p=stack.pop(); p?p():closeWin();
@@ -1869,7 +1869,7 @@ const BASE_LOOK={
    tsh:"inset 0 2px 0 rgba(255,255,255,.45),0 4px 0 rgba(0,0,0,.16),0 9px 16px rgba(0,0,0,.14)",gloss:"linear-gradient(162deg,rgba(255,255,255,.42),rgba(255,255,255,.05) 46%,rgba(0,0,0,.06))",
    line:"rgba(36,36,40,.12)",field:"#ffffff",sheet:"#ffffff",barBg:"rgba(255,255,255,.92)",font:BASE_SANS},
   pop:["#ff5d5d","#2fc2e0","#ffb02e","#a76bf0"],
-  x:".h1{letter-spacing:-.01em}.tl span,.row b{font-weight:800}.btn{box-shadow:0 4px 0 rgba(0,0,0,.18)}"},
+  x:".h1{letter-spacing:-.01em}.tl>span:last-child,.row b{font-weight:800}.btn{box-shadow:0 4px 0 rgba(0,0,0,.18)}"},
  trust:{v:{base:"#f4f6f9",ink:"#16355e",sub:"#5f7189",acc:"#16355e",btnInk:"#ffffff",
    panel:"#ffffff",panelB:"1px solid #d9e0ea",pr:"4px",psh:"none",gloss2:"none",
    tile:"#16355e",tileB:"none",tr:"3px",icc:"#ffffff",sw:"1.6",tsh:"none",gloss:"none",
@@ -1879,12 +1879,12 @@ const BASE_LOOK={
    panel:"rgba(251,247,238,.95)",panelB:"1px solid rgba(43,43,47,.5)",pr:"0",psh:"none",gloss2:"none",
    tile:"#fbf7ee",tileB:"1px solid rgba(43,43,47,.55)",tr:"0",icc:"#2b2b2f",sw:"1.4",tsh:"none",gloss:"none",
    line:"rgba(43,43,47,.2)",field:"#fffdf8",sheet:"#fbf7ee",barBg:"rgba(243,236,221,.94)",font:BASE_MIN},
-  vt:true,veil:"rgba(243,236,221,.42)",x:".ic::after{content:\"\";position:absolute;left:0;right:0;top:0;height:3px;background:#b5402f}.tl span,.heroS,.cap{letter-spacing:.14em}.h1{font-weight:600;letter-spacing:.08em}"},
+  vt:true,veil:"rgba(243,236,221,.42)",x:".ic::after{content:\"\";position:absolute;left:0;right:0;top:0;height:3px;background:#b5402f}.tl>span:last-child,.heroS,.cap{letter-spacing:.14em}.h1{font-weight:600;letter-spacing:.08em}"},
  mini:{v:{base:"#ffffff",ink:"#111111",sub:"#8e8e8e",acc:"#111111",btnInk:"#ffffff",
    panel:"#ffffff",panelB:"1px solid #111111",pr:"0",psh:"none",gloss2:"none",
    tile:"#ffffff",tileB:"1px solid #111111",tr:"0",icc:"#111111",sw:"1.1",tsh:"none",gloss:"none",
    line:"#e6e6e6",field:"#ffffff",sheet:"#ffffff",barBg:"rgba(255,255,255,.96)",font:BASE_SANS},
-  x:".h1{font-size:20px;font-weight:600;letter-spacing:.34em}.tl span,.cap,.heroS{letter-spacing:.2em;font-weight:400}.heroN{font-weight:300}"},
+  x:".h1{font-size:20px;font-weight:600;letter-spacing:.34em}.tl>span:last-child,.cap,.heroS{letter-spacing:.2em;font-weight:400}.heroN{font-weight:300}"},
  nat:{v:{base:"#f2eee2",ink:"#4c4638",sub:"#857d68",acc:"#5c7a4a",btnInk:"#ffffff",
    panel:"#fffdf7",panelB:"1px solid rgba(92,122,74,.26)",pr:"20px",
    psh:"inset 0 1px 0 #ffffff,0 8px 16px rgba(110,100,70,.14)",gloss2:"linear-gradient(160deg,rgba(255,255,255,.5),rgba(255,255,255,0) 52%)",
@@ -1924,7 +1924,7 @@ button,input,textarea,select{font:inherit;color:inherit}
 .ic::before{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--gloss)}
 .ic svg{position:relative;width:28px;height:28px;stroke:currentColor;fill:none;stroke-width:var(--sw);stroke-linecap:round;stroke-linejoin:round}
 .ic.sm{width:40px;height:40px}.ic.sm svg{width:21px;height:21px}
-.tl span{font-size:12px;font-weight:600;color:var(--ink);text-align:center;line-height:1.35}
+.tl>span:last-child{font-size:12px;font-weight:600;color:var(--ink);text-align:center;line-height:1.35}
 .cap{font-size:12.5px;font-weight:700;color:var(--sub);margin:0 4px 8px}
 .row{display:flex;align-items:center;gap:12px;width:100%;padding:13px 16px;background:none;border:none;text-align:left;cursor:pointer;position:relative;z-index:1}
 .row+.row{border-top:1px solid var(--line)}
@@ -1967,7 +1967,13 @@ button,input,textarea,select{font:inherit;color:inherit}
 .fl input,.fl textarea,.fl select{width:100%;padding:12px 14px;font-size:16px;border-radius:10px;border:var(--panelB);background:var(--field)}
 .fl textarea{min-height:96px;resize:vertical}
 .err{color:#d63c31;font-size:14.5px;font-weight:700}.err:empty{display:none}.err:not(:empty){padding:4px 0 2px}
-.msg{font-size:16px;padding:6px 2px 22px;line-height:1.6}`;
+.msg{font-size:16px;padding:6px 2px 22px;line-height:1.6}
+.big{display:grid;grid-template-columns:1fr 1fr;gap:28px 10px;margin:14px 0 24px}
+.big .tl{gap:10px}.big .tl>span:last-child{font-size:14.5px}
+.tl .w{position:relative;display:block}
+.ic.lg{width:96px;height:96px}.ic.lg svg{width:42px;height:42px}
+.bd{position:absolute;top:-7px;right:-7px;min-width:26px;height:26px;padding:0 7px;border-radius:99px;background:#e0443a;color:#fff;font-size:14px;font-weight:800;font-style:normal;display:flex;align-items:center;justify-content:center;border:2px solid var(--base)}
+.sum{display:inline-flex;align-items:baseline;gap:8px;font-size:13.5px;color:var(--sub);margin:0 0 6px}.sum b{font-size:20px;color:var(--acc)}`;
 
 /* 試作の中で動くプログラム。この関数の中身がそのまま試作の HTML に入る。C は設定（JSON） */
 function BASE_RUN(C){
@@ -2004,34 +2010,39 @@ function BASE_RUN(C){
     if(back)$("bk").onclick=back[1];
     window.scrollTo(0,0);
   }
-  function hero(){
-    var h=C.hero,n,t=today();
-    if(h.kind==="today")n=rows.filter(function(r){return r[h.field]===t;}).length;
-    else if(h.kind==="status")n=rows.filter(function(r){return r[h.field]===h.value;}).length;
-    else if(h.kind==="month_sum"){var ym=t.slice(0,7);
-      n=rows.filter(function(r){return String(r[h.field]||"").slice(0,7)===ym;}).reduce(function(s,r){return s+(+r[h.sum]||0);},0);
-      return '<div class="panel hero"><div class="heroS">'+esc(h.label)+'</div><div class="heroN">¥'+n.toLocaleString("ja-JP")+'</div></div>';}
-    else n=rows.length;
-    return '<div class="panel hero"><div class="heroS">'+esc(h.label)+'</div><div class="heroN">'+n+'<small>'+esc(h.unit)+'</small></div></div>';
+  function heroVal(){
+    var h=C.hero,t=today();
+    if(h.kind==="month_sum"){var ym=t.slice(0,7);
+      var sum=rows.filter(function(r){return String(r[h.field]||"").slice(0,7)===ym;}).reduce(function(s,r){return s+(+r[h.sum]||0);},0);
+      return {label:h.label,big:"¥"+sum.toLocaleString("ja-JP"),unit:"",n:0};}
+    var n=h.kind==="today"?rows.filter(function(r){return r[h.field]===t;}).length
+      :h.kind==="status"?rows.filter(function(r){return r[h.field]===h.value;}).length:rows.length;
+    return {label:h.label,big:String(n),unit:h.unit,n:n};
   }
+  function hero(){var v=heroVal();
+    return '<div class="panel hero"><div class="heroS">'+esc(v.label)+'</div><div class="heroN">'+esc(v.big)+(v.unit?'<small>'+esc(v.unit)+'</small>':'')+'</div></div>';}
   function home(){
-    var head;
-    if(C.band)head='<div class="band"><b>'+esc(C.cust)+'</b><div class="h1">'+esc(C.app)+'</div></div>';
-    else if(C.vt)head='<div class="wa"><div class="l"><div class="h1">'+esc(C.app)+'</div><div class="sub">'+esc(C.cust)+'</div>'+hero()+'</div>'+
+    var lay=C.layout, v=heroVal(), head;
+    var heroH=lay==="icons"?'<div class="sum">'+esc(v.label)+'<b>'+esc(v.big+v.unit)+'</b></div>':hero();
+    if(C.band)head='<div class="band"><b>'+esc(C.cust)+'</b><div class="h1">'+esc(C.app)+'</div></div>'+heroH;
+    else if(C.vt)head='<div class="wa"><div class="l"><div class="h1">'+esc(C.app)+'</div><div class="sub">'+esc(C.cust)+'</div>'+heroH+'</div>'+
       '<div class="vt">'+Array.from(String(C.cust)).slice(0,14).map(function(c){return "<span>"+esc(c)+"</span>";}).join("")+'</div></div>';
-    else head='<div class="h1">'+esc(C.app)+'</div><div class="sub">'+esc(C.cust)+'</div>';
-    var tiles=C.layout==="rows"
-      ?'<div class="panel" style="margin-bottom:24px">'+C.tiles.map(function(t,i){return '<button class="row" data-t="'+i+'"><span class="ic sm">'+svg(t.ic)+'</span>'+
+    else head='<div class="h1">'+esc(C.app)+'</div><div class="sub">'+esc(C.cust)+'</div>'+heroH;
+    var bg=function(i){return C.pop?' style="background:'+C.pop[i%C.pop.length]+'"':'';};
+    var tiles=lay==="rows"
+      ?'<div class="panel" style="margin-bottom:24px">'+C.tiles.map(function(t,i){return '<button class="row" data-t="'+i+'"><span class="ic sm"'+bg(i)+'>'+svg(t.ic)+'</span>'+
         '<span class="m"><b>'+esc(t.n)+'</b><small>'+esc(t.d)+'</small></span>'+CV+'</button>';}).join("")+'</div>'
-      :'<div class="tiles">'+C.tiles.map(function(t,i){return '<button class="tl" data-t="'+i+'"><span class="ic"'+
-        (C.pop?' style="background:'+C.pop[i%C.pop.length]+'"':'')+'>'+svg(t.ic)+'</span><span>'+esc(t.n)+'</span></button>';}).join("")+'</div>';
+      :lay==="icons"
+      ?'<div class="big">'+C.tiles.map(function(t,i){return '<button class="tl" data-t="'+i+'"><span class="w"><span class="ic lg"'+bg(i)+'>'+svg(t.ic)+'</span>'+
+        (i===0&&v.n>0?'<em class="bd">'+v.n+'</em>':'')+'</span><span>'+esc(t.n)+'</span></button>';}).join("")+'</div>'
+      :'<div class="tiles">'+C.tiles.map(function(t,i){return '<button class="tl" data-t="'+i+'"><span class="ic"'+bg(i)+'>'+svg(t.ic)+'</span><span>'+esc(t.n)+'</span></button>';}).join("")+'</div>';
     var t=today(), list=sorted();
     if(C.upcoming)list=list.filter(function(r){return String(r[C.upcoming]||"")>=t;});
     list=list.slice(0,3);
-    view(head+(C.vt?"":hero())+tiles+'<div class="cap">'+esc(C.recent)+'</div>'+
-      '<div class="panel" id="rc">'+(list.length?list.map(rowBtn).join(""):'<div class="empty">まだありません</div>')+'</div>');
+    view(head+tiles+(lay==="icons"?"":'<div class="cap">'+esc(C.recent)+'</div>'+
+      '<div class="panel" id="rc">'+(list.length?list.map(rowBtn).join(""):'<div class="empty">まだありません</div>')+'</div>'));
     $("v").querySelectorAll("[data-t]").forEach(function(b){b.onclick=function(){go(C.tiles[+b.getAttribute("data-t")].go);};});
-    bindRows($("rc"));
+    if($("rc"))bindRows($("rc"));
   }
   function go(k){if(k==="list")list("");else if(k==="new")form(null);else if(k==="find")list("",true);else help();}
   var q="";
@@ -2100,34 +2111,67 @@ function BASE_RUN(C){
   try{parent.postMessage({dodai:"ready"},"*");}catch(e){}
 }
 
-/* 試作の HTML を作る。見た目が決まっていなければスタイリッシュ、型（問14）が無ければ台帳・一覧で作る */
-function baseParts(a){
-  const q14=ansV(a,14), tName=BASE_TYPE[q14]?q14:BASE_TYPE_DEF, t=BASE_TYPE[tName];
-  const lookId=a.look&&BASE_LOOK[a.look.id]?a.look.id:BASE_LOOK_DEF, L=BASE_LOOK[lookId];
-  const lookName=(LOOK.find(o=>o.id===lookId)||{}).name||lookId;
-  return {t,tName,lookId,L,lookName,typeGuess:!BASE_TYPE[q14],lookGuess:!(a.look&&BASE_LOOK[a.look.id])};
+/* ホームの形と色合いの選択肢（第8回の2）。選んだものは app.look の home と hue に残す（無ければ「おまかせ」「元の色」） */
+const BASE_HOME=[["auto","おまかせ"],["std","数字と一覧"],["icons","アイコンだけ"],["rows","行で並べる"]];
+const BASE_HUE=[0,35,90,150,210,290];
+/* 色合いを変える：色の「色相」だけを回す。白・黒・灰色は変わらない。消すときの赤（#d63c31）は変えない */
+function baseRotHex(h,deg){
+  if(h.toLowerCase()==="d63c31")return "#"+h;
+  const r=parseInt(h.slice(0,2),16)/255,g=parseInt(h.slice(2,4),16)/255,b=parseInt(h.slice(4,6),16)/255;
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2;let s=0,hh=0;
+  if(mx!==mn){const d=mx-mn;s=l>.5?d/(2-mx-mn):d/(mx+mn);
+    hh=mx===r?(g-b)/d+(g<b?6:0):mx===g?(b-r)/d+2:(r-g)/d+4;hh*=60;}
+  hh=((hh+deg)%360+360)%360;
+  const c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs((hh/60)%2-1)),m=l-c/2;
+  const [R,G,B]=hh<60?[c,x,0]:hh<120?[x,c,0]:hh<180?[0,c,x]:hh<240?[0,x,c]:hh<300?[x,0,c]:[c,0,x];
+  const to=v=>Math.round(Math.min(1,Math.max(0,v+m))*255).toString(16).padStart(2,"0");
+  return "#"+to(R)+to(G)+to(B);
 }
-function baseHTML(a){
-  const {t,tName,lookId,L,lookName}=baseParts(a);
+function baseHue(str,deg){
+  if(!deg)return String(str);
+  return String(str)
+    .replace(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})(?![0-9a-zA-Z])/g,(m,h)=>baseRotHex(h.length===3?h.split("").map(c=>c+c).join(""):h,deg))
+    .replace(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(,[^)]*)?\)/g,(m,r,g,b,al)=>{
+      const hx=baseRotHex([r,g,b].map(v=>(+v).toString(16).padStart(2,"0")).join(""),deg);
+      return "rgba("+parseInt(hx.slice(1,3),16)+","+parseInt(hx.slice(3,5),16)+","+parseInt(hx.slice(5,7),16)+(al||",1")+")";});
+}
+/* 使う見た目・形・色合いを決める。o を渡せばそれを優先、無ければ app.look、それも無ければスタイリッシュ・おまかせ・元の色 */
+function baseParts(a,o){
+  const lk=a.look||{}; o=o||{look:lk.id,home:lk.home,hue:lk.hue};
+  const q14=ansV(a,14), tName=BASE_TYPE[q14]?q14:BASE_TYPE_DEF, t=BASE_TYPE[tName];
+  const lookId=BASE_LOOK[o.look]?o.look:BASE_LOOK_DEF, L=BASE_LOOK[lookId];
+  const lookName=(LOOK.find(x=>x.id===lookId)||{}).name||lookId;
+  const home=BASE_HOME.some(x=>x[0]===o.home)?o.home:"auto";
+  const hue=BASE_HUE.includes(+o.hue)?+o.hue:0;
+  const layout=home==="std"?"grid":home==="icons"?"icons":home==="rows"?"rows":(L.layout||"grid");
+  return {t,tName,lookId,L,lookName,home,hue,layout,typeGuess:!BASE_TYPE[q14],lookGuess:!BASE_LOOK[o.look]};
+}
+function baseHTML(a,o){
+  const {t,tName,lookId,L,lookName,home,hue,layout}=baseParts(a,o);
+  const H=v=>baseHue(v,hue);
   const cust=custName(a);
   const need=["home","plus","find","help",t.ic], icons={};
   need.forEach(k=>{icons[k]=BASE_I[k]||LK_I[k]||"";});
   const cfg={key:a.id,app:a.name,cust,noun:t.noun,listTitle:t.listTitle,addLabel:t.addLabel,fields:t.fields,row:t.row,sort:t.sort,
     upcoming:t.upcoming||"",recent:t.recent,hero:t.hero,seed:t.seed,icons,
-    layout:L.layout||"grid",band:!!L.band,vt:!!L.vt,pop:L.pop||null,
+    layout,band:!!L.band,vt:!!L.vt,pop:L.pop?L.pop.map(H):null,
     tiles:[{ic:t.ic,n:t.tl[0],d:"登録されている"+t.noun+"を見る",go:"list"},{ic:"plus",n:t.tl[1],d:"新しい"+t.noun+"を入れる",go:"new"},
       {ic:"find",n:"さがす",d:"名前や言葉でさがす",go:"find"},{ic:"help",n:"使い方",d:"この画面の使い方",go:"help"}]};
-  const vars=Object.entries(L.v).map(([k,v])=>"--"+k+":"+v).join(";");
+  const V=Object.assign({},L.v);
+  if(hue){const c=H(V.acc).slice(1),lum=[0,2,4].map(i=>parseInt(c.slice(i,i+2),16)/255).reduce((t,x,i)=>t+x*[.299,.587,.114][i],0);
+    if(/^#[0-9a-f]{6}$/i.test(H(V.acc)))V.btnInk=lum>.62?"#141414":"#ffffff";}   /* 地が明るければ黒い字、暗ければ白い字 */
+  const vars=Object.entries(V).map(([k,v])=>"--"+k+":"+(k==="btnInk"?v:H(v))).join(";");
   /* 指示書を先頭の注釈に入れる。注釈が途中で切れないよう「--」を置き換える */
   const brief=docBrief(a).replace(/-{2,}/g,m=>"‐".repeat(m.length));
+  const homeName=(BASE_HOME.find(x=>x[0]===home)||[])[1];
   const LT="\x3C";   /* 開発OS自身の script が途中で切れないよう、「<」で始まる一部の文字は分けて書く */
   return LT+"!DOCTYPE html>\n"+LT+'html lang="ja">\n'+LT+"head>\n"+LT+'meta charset="UTF-8">\n'+
     LT+'meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'+
     LT+"title>"+esc(a.name)+LT+"/title>\n"+
-    LT+"!"+"--\n土台の試作（KSK開発OS で自動作成　"+ymd("-")+"）\n見た目："+lookName+"　型："+tName+"\n\n"+brief+"\n"+"--"+">\n"+
-    LT+"style>:root{"+vars+"}\n"+BASE_CSS+"\n"+(L.x||"")+LT+"/style>\n"+LT+"/head>\n"+LT+"body>\n"+
-    LT+'svg class="bg" viewBox="0 0 140 260" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'+LK_BG[lookId]+LT+"/svg>\n"+
-    (L.veil?LT+'div class="bg" style="background:'+L.veil+'">'+LT+"/div>\n":"")+
+    LT+"!"+"--\n土台の試作（KSK開発OS で自動作成　"+ymd("-")+"）\n見た目："+lookName+"　ホームの形："+homeName+"　色合い："+(hue?hue+"度":"元の色")+"　型："+tName+"\n\n"+brief+"\n"+"--"+">\n"+
+    LT+"style>:root{"+vars+"}\n"+H(BASE_CSS)+"\n"+H(L.x||"")+LT+"/style>\n"+LT+"/head>\n"+LT+"body>\n"+
+    LT+'svg class="bg" viewBox="0 0 140 260" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'+H(LK_BG[lookId])+LT+"/svg>\n"+
+    (L.veil?LT+'div class="bg" style="background:'+H(L.veil)+'">'+LT+"/div>\n":"")+
     LT+'div class="app" id="v">'+LT+"/div>\n"+LT+'div class="bar" id="bar">'+LT+"/div>\n"+
     LT+'div class="shw" id="sh">'+LT+'div class="shin" id="shin">'+LT+"/div>"+LT+"/div>\n"+
     LT+"scr"+"ipt>\n("+BASE_RUN.toString()+")("+JSON.stringify(cfg).replace(/</g,"\\u003c")+");\n"+LT+"/scr"+"ipt>\n"+
@@ -2135,30 +2179,85 @@ function baseHTML(a){
 }
 
 /* 試作を全画面で見せる（開発OSの上に重ねる。重なりの順は シート70・確認80 より下の 65）。
-   枠は sandbox="allow-scripts" だけにする。allow-same-origin は付けない（付けると、試作から開発OSの保存場所に触れられる）。
-   試作は押すたびにその場で作る。開発OSのデータには何も保存しない */
+   上に「見た目」「ホームの形」「色合い」の切り替えを並べ、押すたびにその場で作り直す。
+   「この形に決める」を押したときだけ app.look に保存する（id・name・date・home・hue）。それ以外は何も保存しない。
+   枠は sandbox="allow-scripts" だけにする。allow-same-origin は付けない（付けると、試作から開発OSの保存場所に触れられる） */
 function showBase(a){
-  const {tName,lookName,typeGuess,lookGuess}=baseParts(a), html=baseHTML(a);
-  const name=`${fname(custName(a))}_${fname(a.name)}_試作_${ymd()}.html`;
+  const lk=a.look||{};
+  const st={look:BASE_LOOK[lk.id]?lk.id:null,home:lk.home||"auto",hue:+(lk.hue||0)};
+  let html="",ready=false,timer=null,saved=false,open=true;
   const old=$("baseOv"); if(old) old.remove();
   const ov=document.createElement("div"); ov.id="baseOv";
   ov.style.cssText="position:fixed;inset:0;z-index:65;background:#000;display:flex;flex-direction:column";
-  const guess=(lookGuess?"見た目がまだ決まっていないので、スタイリッシュで作りました。":"")+
-              (typeGuess?"聞き取りの問14（一番近い型）がまだなので、台帳・一覧で作りました。":"");
-  ov.innerHTML=`<div class="sh" style="background:#101012;padding-top:calc(env(safe-area-inset-top) + 10px)"><button id="bxC">閉じる</button><b>動く試作</b><button class="r" id="bxP">コピー</button></div>
-    <div style="background:#101012;padding:0 var(--sp) 10px;font-size:12.5px;line-height:1.55;color:var(--t2);border-bottom:.5px solid var(--sep)">見た目：${esc(lookName)}　型：${esc(tName)}${guess?`<br><span style="color:var(--amber)">${esc(guess)}</span>`:""}</div>
-    <div style="flex:1;position:relative;background:#000">
-      <iframe id="bxF" sandbox="allow-scripts" title="動く試作" style="position:absolute;inset:0;width:100%;height:100%;border:0"></iframe>
-      <div id="bxN" style="display:none;position:absolute;inset:0;padding:48px 24px;text-align:center;font-size:15px;line-height:1.7;color:var(--t2);background:#000">この画面では試作を表示できませんでした。<br>右上の「コピー」で全文を写して、Claude Code に渡してください。</div>
-    </div>`;
+  ov.innerHTML=`<style>
+    #baseOv .bxP{background:#101012;border-bottom:.5px solid var(--sep);padding:0 0 10px}
+    #baseOv .bxL{font-size:11px;font-weight:700;color:var(--t2);letter-spacing:.06em;padding:8px var(--sp) 5px}
+    #baseOv .bxR{display:flex;gap:7px;overflow-x:auto;padding:0 var(--sp) 2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    #baseOv .bxR::-webkit-scrollbar{display:none}
+    #baseOv .bxC{flex:none;display:flex;align-items:center;gap:6px;border:1px solid #2c2c2f;background:#1c1c1f;color:var(--t1);
+      border-radius:99px;padding:7px 12px;font-size:13.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+    #baseOv .bxC.on{border-color:var(--blue);background:rgba(10,132,255,.18);color:#fff}
+    #baseOv .bxD{width:14px;height:14px;border-radius:50%;flex:none;border:1px solid rgba(255,255,255,.25)}
+    #baseOv .bxS{flex:none;width:36px;height:36px;border-radius:50%;border:2px solid #2c2c2f;cursor:pointer;padding:0}
+    #baseOv .bxS.on{border-color:var(--blue);box-shadow:0 0 0 2px rgba(10,132,255,.35)}
+    #baseOv .bxB{display:flex;gap:8px;padding:10px var(--sp) 0}
+    #baseOv .bxB button{flex:1;border:none;border-radius:12px;padding:11px;font-size:15px;font-weight:700;cursor:pointer}
+  </style>
+  <div class="sh" style="background:#101012;padding-top:calc(env(safe-area-inset-top) + 10px)"><button id="bxC">閉じる</button><b>動く試作</b><button class="r" id="bxP">コピー</button></div>
+  <div id="bxI" style="background:#101012;padding:0 var(--sp) 8px;font-size:12.5px;line-height:1.55;color:var(--t2)"></div>
+  <div class="bxP" id="bxPanel"></div>
+  <div style="flex:1;position:relative;background:#000">
+    <iframe id="bxF" sandbox="allow-scripts" title="動く試作" style="position:absolute;inset:0;width:100%;height:100%;border:0"></iframe>
+    <div id="bxN" style="display:none;position:absolute;inset:0;padding:48px 24px;text-align:center;font-size:15px;line-height:1.7;color:var(--t2);background:#000">この画面では試作を表示できませんでした。<br>右上の「コピー」で全文を写して、Claude Code に渡してください。</div>
+  </div>`;
   document.body.appendChild(ov);
-  const f=$("bxF"); let ready=false;
+  const f=$("bxF");
   const on=e=>{if(e.source===f.contentWindow&&e.data&&e.data.dodai==="ready")ready=true;};
   addEventListener("message",on);
-  const timer=setTimeout(()=>{if(!ready&&$("bxN"))$("bxN").style.display="block";},4000);   /* 4秒たっても動かなければ案内を出す */
-  f.srcdoc=html;
-  $("bxC").onclick=()=>{clearTimeout(timer);removeEventListener("message",on);ov.remove();};
-  $("bxP").onclick=()=>sheetText("試作のHTML",name,html,"Claude Code に貼ると、この試作の続きを作れます。先頭に指示書も入っています。");
+  const load=()=>{
+    html=baseHTML(a,st); ready=false; clearTimeout(timer); $("bxN").style.display="none";
+    f.srcdoc=html;
+    timer=setTimeout(()=>{if(!ready&&$("bxN"))$("bxN").style.display="block";},4000);   /* 4秒たっても動かなければ案内を出す */
+  };
+  const paint=()=>{
+    const p=baseParts(a,st), L=p.L;
+    const guess=(p.lookGuess?"見た目がまだ決まっていないので、スタイリッシュで作りました。":"")+
+                (p.typeGuess?"聞き取りの問14（一番近い型）がまだなので、台帳・一覧で作りました。":"");
+    const now=a.look&&BASE_LOOK[a.look.id]?`いま決まっている形：${esc(a.look.name)}・${esc((BASE_HOME.find(x=>x[0]===(a.look.home||"auto"))||[])[1]||"おまかせ")}`:"まだ決めていません";
+    $("bxI").innerHTML=`型：${esc(p.tName)}　／　${now}${guess?`<br><span style="color:var(--amber)">${esc(guess)}</span>`:""}`;
+    const sw=(id,h)=>{const v=BASE_LOOK[id].v;return `background:${baseHue(`linear-gradient(135deg,${v.base} 0%,${v.base} 45%,${v.acc} 100%)`,h)}`;};
+    const keepX=[...ov.querySelectorAll(".bxR")].map(r=>r.scrollLeft);   /* 横に並んだ列の位置を覚えておく */
+    $("bxPanel").innerHTML=!open
+      ?`<div class="bxB" style="padding-top:8px"><button id="bxO" style="background:#1c1c1f;color:var(--blue)">形と色を変える</button></div>`
+      :`<div class="bxL">見た目</div><div class="bxR">${LOOK.map(o=>`<button class="bxC ${st.look===o.id?"on":""}" data-lk="${o.id}"><span class="bxD" style="${sw(o.id,0)}"></span>${esc(o.name)}</button>`).join("")}</div>
+        <div class="bxL">ホームの形</div><div class="bxR">${BASE_HOME.map(([k,n])=>`<button class="bxC ${st.home===k?"on":""}" data-hm="${k}">${esc(n)}</button>`).join("")}</div>
+        <div class="bxL">色合い</div><div class="bxR">${BASE_HUE.map(h=>`<button class="bxS ${st.hue===h?"on":""}" data-hu="${h}" aria-label="${h?"色合い "+h+"度":"元の色"}" style="${sw(p.lookId,h)}"></button>`).join("")}<span style="align-self:center;font-size:12px;color:var(--t2);padding-left:4px;white-space:nowrap">左が元の色</span></div>
+        <div class="bxB"><button id="bxK" style="background:#1c1c1f;color:var(--t2)">たたむ</button><button id="bxS" style="background:var(--blue);color:#fff">この形に決める</button></div>`;
+    ov.querySelectorAll(".bxR").forEach((r,i)=>{
+      if(keepX.length)r.scrollLeft=keepX[i]||0;                            /* 押した位置のまま */
+      else{const c=r.querySelector(".on");if(c)r.scrollLeft=Math.max(0,c.offsetLeft-r.clientWidth/2+c.offsetWidth/2);}   /* 初めは選んでいるものを真ん中に */
+    });
+    ov.querySelectorAll("[data-lk]").forEach(b=>b.onclick=()=>{st.look=b.dataset.lk;paint();load();});
+    ov.querySelectorAll("[data-hm]").forEach(b=>b.onclick=()=>{st.home=b.dataset.hm;paint();load();});
+    ov.querySelectorAll("[data-hu]").forEach(b=>b.onclick=()=>{st.hue=+b.dataset.hu;paint();load();});
+    if($("bxO"))$("bxO").onclick=()=>{open=true;paint();};
+    if($("bxK"))$("bxK").onclick=()=>{open=false;paint();};
+    if($("bxS"))$("bxS").onclick=async()=>{
+      const q=baseParts(a,st);
+      if(!await askSheet(`この形にしますか（${q.lookName}・${(BASE_HOME.find(x=>x[0]===q.home)||[])[1]}・${q.hue?"色合いを変えたもの":"元の色"}）`,"はい、これにする",{danger:false}))return;
+      a.look={id:q.lookId,name:q.lookName,date:ymd("-"),home:q.home,hue:q.hue};
+      st.look=q.lookId; saved=true;
+      await save(); paint();
+      const band=$("saveBand");
+      if(band&&band.style.display!=="none")return;   /* 保存に失敗したときは、失敗のお知らせと赤い帯をそのまま残す */
+      noticeSheet("見た目を決めました。");
+    };
+  };
+  paint(); load();
+  $("bxC").onclick=()=>{clearTimeout(timer);removeEventListener("message",on);ov.remove();if(saved)scDetail(a.id);};
+  $("bxP").onclick=()=>{const q=baseParts(a,st);
+    sheetText("試作のHTML",`${fname(custName(a))}_${fname(a.name)}_試作_${ymd()}.html`,html,
+      `いまの形（${q.lookName}・${(BASE_HOME.find(x=>x[0]===q.home)||[])[1]}）で写します。Claude Code に貼ると、この試作の続きを作れます。先頭に指示書も入っています。`);};
 }
 /* 長い文を全文出して写す（指示書・確認書の sheetDoc と同じ写し方）。書き出した内容は保存しない */
 function sheetText(title,name,text,hint){
