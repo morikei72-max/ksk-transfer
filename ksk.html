@@ -1557,7 +1557,7 @@ function scLook(id){
       $("sc").querySelectorAll("[data-lk]").forEach(x=>x.classList.toggle("on",x.dataset.lk===cur));   /* やめたら元に戻す */
       return;
     }
-    { const pv=a.look||{}; a.look={id:o.id,name:o.name,date:ymd("-")}; if(pv.home!==undefined)a.look.home=pv.home; if(pv.hue!==undefined)a.look.hue=pv.hue; }   /* 試作の画面で決めたホームの形と色合いは残す（第8回の2） */
+    { const pv=a.look||{}; a.look={id:o.id,name:o.name,date:ymd("-")}; if(pv.home!==undefined)a.look.home=pv.home; if(pv.hue!==undefined)a.look.hue=pv.hue; if(pv.motion!==undefined)a.look.motion=pv.motion; }   /* 試作の画面で決めたホームの形と色合いは残す（第8回の2） */
     await save();
     if($("saveBand").style.display==="block") return;   /* 保存に失敗したときは、赤い帯と赤い注意が出ている */
     const p=stack.pop(); p?p():closeWin();
@@ -1975,7 +1975,30 @@ button,input,textarea,select{font:inherit;color:inherit}
 .tl .w{position:relative;display:block}
 .ic.lg{width:96px;height:96px}.ic.lg svg{width:42px;height:42px}
 .bd{position:absolute;top:-7px;right:-7px;min-width:26px;height:26px;padding:0 7px;border-radius:99px;background:#e0443a;color:#fff;font-size:14px;font-weight:800;font-style:normal;display:flex;align-items:center;justify-content:center;border:2px solid var(--base)}
-.sum{display:inline-flex;align-items:baseline;gap:8px;font-size:13.5px;color:var(--sub);margin:0 0 6px}.sum b{font-size:20px;color:var(--acc)}`;
+.sum{display:inline-flex;align-items:baseline;gap:8px;font-size:13.5px;color:var(--sub);margin:0 0 6px}.sum b{font-size:20px;color:var(--acc)}
+.ic{transition:transform .15s}.tl:active .ic,.row:active .ic{transform:scale(.94)}
+.gl{display:none}
+.m-float .tl .ic,.m-float .row .ic{animation:mFloat 4.2s ease-in-out infinite}
+.m-float .tl:nth-child(2) .ic,.m-float .row:nth-child(2) .ic{animation-delay:-1.1s}
+.m-float .tl:nth-child(3) .ic,.m-float .row:nth-child(3) .ic{animation-delay:-2.3s}
+.m-float .tl:nth-child(4) .ic,.m-float .row:nth-child(4) .ic{animation-delay:-3.2s}
+@keyframes mFloat{0%,100%{translate:0 0}50%{translate:0 -6px}}
+.pp{animation:mPop .38s cubic-bezier(.3,1.6,.5,1)}
+.btn.pp,.bar button.pp,.row.pp{animation:mPress .3s ease-out}
+@keyframes mPop{0%{transform:scale(1)}35%{transform:scale(.84)}70%{transform:scale(1.08)}100%{transform:scale(1)}}
+@keyframes mPress{0%{transform:scale(1)}40%{transform:scale(.96)}100%{transform:scale(1)}}
+.m-rise #v>*,.m-rise .tl{animation:mRise .55s cubic-bezier(.2,.8,.2,1) both}
+.m-rise #v>*:nth-child(2){animation-delay:.06s}.m-rise #v>*:nth-child(3){animation-delay:.12s}.m-rise #v>*:nth-child(4){animation-delay:.18s}
+.m-rise #v>*:nth-child(5){animation-delay:.24s}.m-rise #v>*:nth-child(6){animation-delay:.3s}.m-rise #v>*:nth-child(n+7){animation-delay:.36s}
+.m-rise .tl:nth-child(1){animation-delay:.14s}.m-rise .tl:nth-child(2){animation-delay:.2s}.m-rise .tl:nth-child(3){animation-delay:.26s}.m-rise .tl:nth-child(4){animation-delay:.32s}
+@keyframes mRise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.m-shine .gl{display:block;position:absolute;top:-10%;bottom:-10%;left:-70%;width:55%;pointer-events:none;
+  background:linear-gradient(100deg,rgba(255,255,255,0),rgba(255,255,255,.6),rgba(255,255,255,0));transform:skewX(-18deg);animation:mShine 4.2s ease-in-out infinite}
+.m-shine .tl:nth-child(2) .gl,.m-shine .row:nth-child(2) .gl{animation-delay:.25s}
+.m-shine .tl:nth-child(3) .gl,.m-shine .row:nth-child(3) .gl{animation-delay:.5s}
+.m-shine .tl:nth-child(4) .gl,.m-shine .row:nth-child(4) .gl{animation-delay:.75s}
+@keyframes mShine{0%,55%{left:-70%}85%,100%{left:130%}}
+@media(prefers-reduced-motion:reduce){.ic,.gl,.pp,.tl,#v>*{animation:none!important;transition:none!important}}`;
 
 /* 試作の中で動くプログラム。この関数の中身がそのまま試作の HTML に入る。C は設定（JSON） */
 function BASE_RUN(C){
@@ -2032,12 +2055,12 @@ function BASE_RUN(C){
     else head='<div class="h1">'+esc(C.app)+'</div><div class="sub">'+esc(C.cust)+'</div>'+heroH;
     var bg=function(i){return C.pop?' style="background:'+C.pop[i%C.pop.length]+'"':'';};
     var tiles=lay==="rows"
-      ?'<div class="panel" style="margin-bottom:24px">'+C.tiles.map(function(t,i){return '<button class="row" data-t="'+i+'"><span class="ic sm"'+bg(i)+'>'+svg(t.ic)+'</span>'+
+      ?'<div class="panel" style="margin-bottom:24px">'+C.tiles.map(function(t,i){return '<button class="row" data-t="'+i+'"><span class="ic sm"'+bg(i)+'>'+svg(t.ic)+'<i class="gl"></i></span>'+
         '<span class="m"><b>'+esc(t.n)+'</b><small>'+esc(t.d)+'</small></span>'+CV+'</button>';}).join("")+'</div>'
       :lay==="icons"
-      ?'<div class="big">'+C.tiles.map(function(t,i){return '<button class="tl" data-t="'+i+'"><span class="w"><span class="ic lg"'+bg(i)+'>'+svg(t.ic)+'</span>'+
+      ?'<div class="big">'+C.tiles.map(function(t,i){return '<button class="tl" data-t="'+i+'"><span class="w"><span class="ic lg"'+bg(i)+'>'+svg(t.ic)+'<i class="gl"></i></span>'+
         (i===0&&v.n>0?'<em class="bd">'+v.n+'</em>':'')+'</span><span>'+esc(t.n)+'</span></button>';}).join("")+'</div>'
-      :'<div class="tiles">'+C.tiles.map(function(t,i){return '<button class="tl" data-t="'+i+'"><span class="ic"'+bg(i)+'>'+svg(t.ic)+'</span><span>'+esc(t.n)+'</span></button>';}).join("")+'</div>';
+      :'<div class="tiles">'+C.tiles.map(function(t,i){return '<button class="tl" data-t="'+i+'"><span class="ic"'+bg(i)+'>'+svg(t.ic)+'<i class="gl"></i></span><span>'+esc(t.n)+'</span></button>';}).join("")+'</div>';
     var t=today(), list=sorted();
     if(C.upcoming)list=list.filter(function(r){return String(r[C.upcoming]||"")>=t;});
     list=list.slice(0,3);
@@ -2106,6 +2129,14 @@ function BASE_RUN(C){
        ["直す・消す","一覧で押すと中身が出ます。そこから直したり消したりできます"],["ホームへ","画面の下の「ホーム」でいつでも戻れます"]]
       .map(function(x){return '<div class="kv"><small>'+esc(x[0])+'</small><div>'+esc(x[1])+'</div></div>';}).join("")+'</div>',["ホーム",home]);
   }
+  if(C.motion==="bounce")document.addEventListener("click",function(e){
+    if(e.__again)return;
+    var t=e.target&&e.target.closest?e.target.closest(".tl,.row,.btn,.bar button"):null;
+    if(!t||!$("v").contains(t)&&!$("bar").contains(t))return;
+    e.stopPropagation();e.preventDefault();
+    var k=t.querySelector(".ic")||t;k.classList.remove("pp");void k.offsetWidth;k.classList.add("pp");
+    setTimeout(function(){var ev=new MouseEvent("click",{bubbles:true,cancelable:true});ev.__again=true;t.dispatchEvent(ev);},190);
+  },true);   /* 押すと弾む：押したものを弾ませてから、少し遅らせて本来の動きをする */
   $("bar").innerHTML='<button id="bh">'+svg("home")+'ホーム</button><button class="pri" id="bp">'+svg("plus")+esc(C.addLabel)+'</button>';
   $("bh").onclick=function(){closeSheet();home();};
   $("bp").onclick=function(){form(null);};
@@ -2113,9 +2144,11 @@ function BASE_RUN(C){
   try{parent.postMessage({dodai:"ready"},"*");}catch(e){}
 }
 
-/* ホームの形と色合いの選択肢（第8回の2）。選んだものは app.look の home と hue に残す（無ければ「おまかせ」「元の色」） */
+/* ホームの形・色合い・動きの選択肢（第8回の2・第8回の4）。選んだものは app.look の home・hue・motion に残す（無ければ「おまかせ」「元の色」「おまかせ」） */
 const BASE_HOME=[["auto","おまかせ"],["std","数字と一覧"],["icons","アイコンだけ"],["rows","行で並べる"]];
 const BASE_HUE=[0,35,90,150,210,290];
+const BASE_MOTION=[["auto","おまかせ"],["none","なし"],["float","ふわっと浮く"],["bounce","押すと弾む"],["rise","順番に出てくる"],["shine","光が流れる"]];
+const BASE_MOTION_DEF={chic:"shine",styl:"float",fresh:"float",soft:"bounce",pop:"bounce",trust:"none",wa:"rise",mini:"rise",nat:"float",dark:"shine"};
 /* 色合いを変える：色の「色相」だけを回す。白・黒・灰色は変わらない。消すときの赤（#d63c31）は変えない */
 function baseRotHex(h,deg){
   if(h.toLowerCase()==="d63c31")return "#"+h;
@@ -2139,24 +2172,26 @@ function baseHue(str,deg){
 }
 /* 使う見た目・形・色合いを決める。o を渡せばそれを優先、無ければ app.look、それも無ければスタイリッシュ・おまかせ・元の色 */
 function baseParts(a,o){
-  const lk=a.look||{}; o=o||{look:lk.id,home:lk.home,hue:lk.hue};
+  const lk=a.look||{}; o=o||{look:lk.id,home:lk.home,hue:lk.hue,motion:lk.motion};
   const q14=ansV(a,14), tName=BASE_TYPE[q14]?q14:BASE_TYPE_DEF, t=BASE_TYPE[tName];
   const lookId=BASE_LOOK[o.look]?o.look:BASE_LOOK_DEF, L=BASE_LOOK[lookId];
   const lookName=(LOOK.find(x=>x.id===lookId)||{}).name||lookId;
   const home=BASE_HOME.some(x=>x[0]===o.home)?o.home:"auto";
   const hue=BASE_HUE.includes(+o.hue)?+o.hue:0;
   const layout=home==="std"?"grid":home==="icons"?"icons":home==="rows"?"rows":(L.layout||"grid");
-  return {t,tName,lookId,L,lookName,home,hue,layout,typeGuess:!BASE_TYPE[q14],lookGuess:!BASE_LOOK[o.look]};
+  const motion=BASE_MOTION.some(x=>x[0]===o.motion)?o.motion:"auto";
+  const move=motion==="auto"?(BASE_MOTION_DEF[lookId]||"none"):motion;   /* 実際に使う動き */
+  return {t,tName,lookId,L,lookName,home,hue,layout,motion,move,typeGuess:!BASE_TYPE[q14],lookGuess:!BASE_LOOK[o.look]};
 }
 function baseHTML(a,o){
-  const {t,tName,lookId,L,lookName,home,hue,layout}=baseParts(a,o);
+  const {t,tName,lookId,L,lookName,home,hue,layout,move}=baseParts(a,o);
   const H=v=>baseHue(v,hue);
   const cust=custName(a);
   const need=["home","plus","find","help",t.ic], icons={};
   need.forEach(k=>{icons[k]=BASE_I[k]||LK_I[k]||"";});
   const cfg={key:a.id,app:a.name,cust,noun:t.noun,listTitle:t.listTitle,addLabel:t.addLabel,fields:t.fields,row:t.row,sort:t.sort,
     upcoming:t.upcoming||"",recent:t.recent,hero:t.hero,seed:t.seed,icons,
-    layout,band:!!L.band,vt:!!L.vt,pop:L.pop?L.pop.map(H):null,
+    layout,motion:move,band:!!L.band,vt:!!L.vt,pop:L.pop?L.pop.map(H):null,
     tiles:[{ic:t.ic,n:t.tl[0],d:"登録されている"+t.noun+"を見る",go:"list"},{ic:"plus",n:t.tl[1],d:"新しい"+t.noun+"を入れる",go:"new"},
       {ic:"find",n:"さがす",d:"名前や言葉でさがす",go:"find"},{ic:"help",n:"使い方",d:"この画面の使い方",go:"help"}]};
   const V=Object.assign({},L.v);
@@ -2166,12 +2201,13 @@ function baseHTML(a,o){
   /* 指示書を先頭の注釈に入れる。注釈が途中で切れないよう「--」を置き換える */
   const brief=docBrief(a).replace(/-{2,}/g,m=>"‐".repeat(m.length));
   const homeName=(BASE_HOME.find(x=>x[0]===home)||[])[1];
+  const moveName=(BASE_MOTION.find(x=>x[0]===move)||[])[1];
   const LT="\x3C";   /* 開発OS自身の script が途中で切れないよう、「<」で始まる一部の文字は分けて書く */
   return LT+"!DOCTYPE html>\n"+LT+'html lang="ja">\n'+LT+"head>\n"+LT+'meta charset="UTF-8">\n'+
     LT+'meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'+
     LT+"title>"+esc(a.name)+LT+"/title>\n"+
-    LT+"!"+"--\n土台の試作（KSK開発OS で自動作成　"+ymd("-")+"）\n見た目："+lookName+"　ホームの形："+homeName+"　色合い："+(hue?hue+"度":"元の色")+"　型："+tName+"\n\n"+brief+"\n"+"--"+">\n"+
-    LT+"style>:root{"+vars+"}\n"+H(BASE_CSS)+"\n"+H(L.x||"")+LT+"/style>\n"+LT+"/head>\n"+LT+"body>\n"+
+    LT+"!"+"--\n土台の試作（KSK開発OS で自動作成　"+ymd("-")+"）\n見た目："+lookName+"　ホームの形："+homeName+"　色合い："+(hue?hue+"度":"元の色")+"　動き："+moveName+"　型："+tName+"\n\n"+brief+"\n"+"--"+">\n"+
+    LT+"style>:root{"+vars+"}\n"+H(BASE_CSS)+"\n"+H(L.x||"")+LT+"/style>\n"+LT+"/head>\n"+LT+'body class="m-'+move+'">\n'+
     LT+'svg class="bg" viewBox="0 0 140 260" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'+H(LK_BG[lookId])+LT+"/svg>\n"+
     (L.veil?LT+'div class="bg" style="background:'+H(L.veil)+'">'+LT+"/div>\n":"")+
     LT+'div class="app" id="v">'+LT+"/div>\n"+LT+'div class="bar" id="bar">'+LT+"/div>\n"+
@@ -2186,7 +2222,7 @@ function baseHTML(a,o){
    枠は sandbox="allow-scripts" だけにする。allow-same-origin は付けない（付けると、試作から開発OSの保存場所に触れられる） */
 function showBase(a,after){
   const lk=a.look||{};
-  const st={look:BASE_LOOK[lk.id]?lk.id:null,home:lk.home||"auto",hue:+(lk.hue||0)};
+  const st={look:BASE_LOOK[lk.id]?lk.id:null,home:lk.home||"auto",hue:+(lk.hue||0),motion:lk.motion||"auto"};
   let html="",ready=false,timer=null,saved=false,open=true;
   const old=$("baseOv"); if(old) old.remove();
   const ov=document.createElement("div"); ov.id="baseOv";
@@ -2225,7 +2261,7 @@ function showBase(a,after){
     const p=baseParts(a,st), L=p.L;
     const guess=(p.lookGuess?"見た目がまだ決まっていないので、スタイリッシュで作りました。":"")+
                 (p.typeGuess?"聞き取りの問14（一番近い型）がまだなので、台帳・一覧で作りました。":"");
-    const now=a.look&&BASE_LOOK[a.look.id]?`いま決まっている形：${esc(a.look.name)}・${esc((BASE_HOME.find(x=>x[0]===(a.look.home||"auto"))||[])[1]||"おまかせ")}`:"まだ決めていません";
+    const now=a.look&&BASE_LOOK[a.look.id]?`いま決まっている形：${esc(a.look.name)}・${esc((BASE_HOME.find(x=>x[0]===(a.look.home||"auto"))||[])[1]||"おまかせ")}・動き：${esc((BASE_MOTION.find(x=>x[0]===(a.look.motion||"auto"))||[])[1]||"おまかせ")}`:"まだ決めていません";
     $("bxI").innerHTML=`型：${esc(p.tName)}　／　${now}${guess?`<br><span style="color:var(--amber)">${esc(guess)}</span>`:""}`;
     const sw=(id,h)=>{const v=BASE_LOOK[id].v;return `background:${baseHue(`linear-gradient(135deg,${v.base} 0%,${v.base} 45%,${v.acc} 100%)`,h)}`;};
     const keepX=[...ov.querySelectorAll(".bxR")].map(r=>r.scrollLeft);   /* 横に並んだ列の位置を覚えておく */
@@ -2234,6 +2270,8 @@ function showBase(a,after){
       :`<div class="bxL">見た目</div><div class="bxR">${LOOK.map(o=>`<button class="bxC ${st.look===o.id?"on":""}" data-lk="${o.id}"><span class="bxD" style="${sw(o.id,0)}"></span>${esc(o.name)}</button>`).join("")}</div>
         <div class="bxL">ホームの形</div><div class="bxR">${BASE_HOME.map(([k,n])=>`<button class="bxC ${st.home===k?"on":""}" data-hm="${k}">${esc(n)}</button>`).join("")}</div>
         <div class="bxL">色合い</div><div class="bxR">${BASE_HUE.map(h=>`<button class="bxS ${st.hue===h?"on":""}" data-hu="${h}" aria-label="${h?"色合い "+h+"度":"元の色"}" style="${sw(p.lookId,h)}"></button>`).join("")}<span style="align-self:center;font-size:12px;color:var(--t2);padding-left:4px;white-space:nowrap">左が元の色</span></div>
+        <div class="bxL">動き</div><div class="bxR">${BASE_MOTION.map(([k,n])=>`<button class="bxC ${st.motion===k?"on":""}" data-mo="${k}">${esc(n)}${k==="auto"?`（${esc((BASE_MOTION.find(x=>x[0]===(BASE_MOTION_DEF[p.lookId]||"none"))||[])[1])}）`:""}</button>`).join("")}</div>
+        ${matchMedia("(prefers-reduced-motion: reduce)").matches?`<div style="padding:6px var(--sp) 0;font-size:12px;line-height:1.5;color:var(--amber)">この端末は「視差効果を減らす」がオンのため、動きは止まって見えます（iPhone の設定 → アクセシビリティ → 動作）。</div>`:""}
         <div class="bxB"><button id="bxK" style="background:#1c1c1f;color:var(--t2)">たたむ</button><button id="bxS" style="background:var(--blue);color:#fff">この形に決める</button></div>`;
     ov.querySelectorAll(".bxR").forEach((r,i)=>{
       if(keepX.length)r.scrollLeft=keepX[i]||0;                            /* 押した位置のまま */
@@ -2242,12 +2280,13 @@ function showBase(a,after){
     ov.querySelectorAll("[data-lk]").forEach(b=>b.onclick=()=>{st.look=b.dataset.lk;paint();load();});
     ov.querySelectorAll("[data-hm]").forEach(b=>b.onclick=()=>{st.home=b.dataset.hm;paint();load();});
     ov.querySelectorAll("[data-hu]").forEach(b=>b.onclick=()=>{st.hue=+b.dataset.hu;paint();load();});
+    ov.querySelectorAll("[data-mo]").forEach(b=>b.onclick=()=>{st.motion=b.dataset.mo;paint();load();});
     if($("bxO"))$("bxO").onclick=()=>{open=true;paint();};
     if($("bxK"))$("bxK").onclick=()=>{open=false;paint();};
     if($("bxS"))$("bxS").onclick=async()=>{
       const q=baseParts(a,st);
-      if(!await askSheet(`この形にしますか（${q.lookName}・${(BASE_HOME.find(x=>x[0]===q.home)||[])[1]}・${q.hue?"色合いを変えたもの":"元の色"}）`,"はい、これにする",{danger:false}))return;
-      a.look={id:q.lookId,name:q.lookName,date:ymd("-"),home:q.home,hue:q.hue};
+      if(!await askSheet(`この形にしますか（${q.lookName}・${(BASE_HOME.find(x=>x[0]===q.home)||[])[1]}・${q.hue?"色合いを変えたもの":"元の色"}・動き：${(BASE_MOTION.find(x=>x[0]===q.move)||[])[1]}）`,"はい、これにする",{danger:false}))return;
+      a.look={id:q.lookId,name:q.lookName,date:ymd("-"),home:q.home,hue:q.hue,motion:q.motion};
       st.look=q.lookId; saved=true;
       await save(); paint();
       const band=$("saveBand");
@@ -2259,7 +2298,7 @@ function showBase(a,after){
   $("bxC").onclick=()=>{clearTimeout(timer);removeEventListener("message",on);ov.remove();if(saved)(after||(()=>scDetail(a.id)))();};
   $("bxP").onclick=()=>{const q=baseParts(a,st);
     sheetText("試作のHTML",`${fname(custName(a))}_${fname(a.name)}_試作_${ymd()}.html`,html,
-      `いまの形（${q.lookName}・${(BASE_HOME.find(x=>x[0]===q.home)||[])[1]}）で写します。Claude Code に貼ると、この試作の続きを作れます。先頭に指示書も入っています。`);};
+      `いまの形（${q.lookName}・${(BASE_HOME.find(x=>x[0]===q.home)||[])[1]}・動き：${(BASE_MOTION.find(x=>x[0]===q.move)||[])[1]}）で写します。Claude Code に貼ると、この試作の続きを作れます。先頭に指示書も入っています。`);};
 }
 /* 長い文を全文出して写す（指示書・確認書の sheetDoc と同じ写し方）。書き出した内容は保存しない */
 function sheetText(title,name,text,hint){
