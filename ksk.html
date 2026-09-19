@@ -319,9 +319,10 @@ const GL={
  word:`<g stroke="currentColor" stroke-width="1.9" fill="none" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9.5h5M8 13h8M8 16.5h5.5"/></g>`,
  help:`<g stroke="currentColor" stroke-width="1.9" fill="none" stroke-linecap="round"><circle cx="12" cy="12" r="8.2"/><path d="M9.6 9.6a2.5 2.5 0 1 1 3.2 2.4c-.6.2-.8.7-.8 1.3"/></g><circle cx="12" cy="16.6" r="1" fill="currentColor"/>`,
  setting:`<g stroke="currentColor" stroke-width="1.9" fill="none" stroke-linejoin="round"><path d="M10.48 5.89L10.82 3.68L13.18 3.68L13.52 5.89L15.25 6.60L17.04 5.28L18.72 6.96L17.40 8.75L18.11 10.48L20.32 10.82L20.32 13.18L18.11 13.52L17.40 15.25L18.72 17.04L17.04 18.72L15.25 17.40L13.52 18.11L13.18 20.32L10.82 20.32L10.48 18.11L8.75 17.40L6.96 18.72L5.28 17.04L6.60 15.25L5.89 13.52L3.68 13.18L3.68 10.82L5.89 10.48L6.60 8.75L5.28 6.96L6.96 5.28L8.75 6.60z"/><circle cx="12" cy="12" r="2.8"/></g>`,
+ proto:`<g stroke="currentColor" stroke-width="1.9" fill="none" stroke-linejoin="round"><rect x="6.3" y="2.8" width="11.4" height="18.4" rx="2.6"/><path d="M10.6 9.1v5.8l4.6-2.9z"/></g>`,
  svc:`<g stroke="currentColor" stroke-width="1.9" fill="none"><rect x="3.7" y="11.6" width="11" height="6.4" rx="3.2" transform="rotate(-45 9.2 14.8)"/><rect x="9.3" y="6" width="11" height="6.4" rx="3.2" transform="rotate(-45 14.8 9.2)"/></g>`
 };
-const TINT={gijiroku:"#ffd60a",apps:"#5ac8fa",money:"#30d158",guide:"#ff9f0a",dec:"#40c8e0",live:"#c78bf5",word:"#9aa0a6",help:"#ff7a95",setting:"#8e8e93",svc:"#64d2ff"};
+const TINT={gijiroku:"#ffd60a",apps:"#5ac8fa",money:"#30d158",guide:"#ff9f0a",dec:"#40c8e0",live:"#c78bf5",word:"#9aa0a6",help:"#ff7a95",setting:"#8e8e93",svc:"#64d2ff",proto:"#7d7aff"};
 const icon=k=>{const c=TINT[k];return `<span class="ico" style="color:${c};background:linear-gradient(160deg,rgba(255,255,255,.15),rgba(255,255,255,.04));border:.5px solid ${c}59;box-shadow:0 5px 16px rgba(0,0,0,.42),inset 0 0 18px ${c}26;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)"><svg viewBox="0 0 24 24">${GL[k]}</svg></span>`;};
 /* ==================== データ ==================== */
 const STAGES=[
@@ -455,6 +456,7 @@ async function saveNow(){
 const TILES=[
  {k:"gijiroku",n:"議事録",go:scMinutes},
  {k:"apps",n:"制作アプリ",go:()=>{filter="all";scApps();}},
+ {k:"proto",n:"動く試作",go:scProto},
  {k:"money",n:"収支",go:scMoney,badge:()=>DB.apps.reduce((n,a)=>n+(a.money||[]).filter(e=>e.t==="in"&&e.status==="billed").length,0)},
  {k:"dec",n:"決まったこと",go:scDec,badge:()=>DB.apps.reduce((n,a)=>n+(a.open||[]).length,0)},
  {k:"guide",n:"手順書",go:scGuide},
@@ -2182,7 +2184,7 @@ function baseHTML(a,o){
    上に「見た目」「ホームの形」「色合い」の切り替えを並べ、押すたびにその場で作り直す。
    「この形に決める」を押したときだけ app.look に保存する（id・name・date・home・hue）。それ以外は何も保存しない。
    枠は sandbox="allow-scripts" だけにする。allow-same-origin は付けない（付けると、試作から開発OSの保存場所に触れられる） */
-function showBase(a){
+function showBase(a,after){
   const lk=a.look||{};
   const st={look:BASE_LOOK[lk.id]?lk.id:null,home:lk.home||"auto",hue:+(lk.hue||0)};
   let html="",ready=false,timer=null,saved=false,open=true;
@@ -2254,7 +2256,7 @@ function showBase(a){
     };
   };
   paint(); load();
-  $("bxC").onclick=()=>{clearTimeout(timer);removeEventListener("message",on);ov.remove();if(saved)scDetail(a.id);};
+  $("bxC").onclick=()=>{clearTimeout(timer);removeEventListener("message",on);ov.remove();if(saved)(after||(()=>scDetail(a.id)))();};
   $("bxP").onclick=()=>{const q=baseParts(a,st);
     sheetText("試作のHTML",`${fname(custName(a))}_${fname(a.name)}_試作_${ymd()}.html`,html,
       `いまの形（${q.lookName}・${(BASE_HOME.find(x=>x[0]===q.home)||[])[1]}）で写します。Claude Code に貼ると、この試作の続きを作れます。先頭に指示書も入っています。`);};
@@ -2273,6 +2275,20 @@ function sheetText(title,name,text,hint){
     if(ok) noticeSheet("コピーしました。Claude Code に貼り付けられます。");
     else noticeSheet("コピーできませんでした。文を長押しして「すべてを選択」→「コピー」で写してください。",true);
   };
+}
+/* ==================== 動く試作（ホームから入る） ==================== */
+/* ホームの「動く試作」→ アプリを選ぶ → すぐ試作を開く（2タップ）。制作中のアプリを上に並べる。ここでは何も保存しない */
+function scProto(){
+  const list=DB.apps.slice().sort((x,y)=>(x.status==="make"?0:1)-(y.status==="make"?0:1));
+  view("動く試作","アプリを選ぶと、その場で試作が出ます。見た目や形もその場で変えられます",
+   sec("アプリを選ぶ",list.length+"件",list.length?list.map(a=>{
+     const p=baseParts(a), hm=(BASE_HOME.find(x=>x[0]===p.home)||[])[1]||"おまかせ";
+     const lk=a.look&&BASE_LOOK[a.look.id]?`${esc(p.lookName)}・${esc(hm)}`:`<span style="color:var(--amber)">見た目はまだ</span>`;
+     return `<button class="row" data-p="${a.id}"><span class="dt" style="background:${(ST[a.status]||ST.make)[2]}"></span>
+       <span class="m"><b>${esc(a.name)}</b><small>${lk}　型：${esc(p.tName)}${p.typeGuess?"（仮）":""}</small></span>${CV}</button>`;}).join("")
+     :nil("先に「制作アプリ」でアプリを登録してください")));
+  $("sc").querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{
+    const a=DB.apps.find(x=>x.id===b.dataset.p); if(a) showBase(a,scProto);});
 }
 tick(); setInterval(tick,10000); boot();
 </script>
